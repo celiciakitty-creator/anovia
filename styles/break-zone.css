@@ -1,0 +1,218 @@
+/*
+ * Break Zone cozy layer — scoped to .break-zone-page only.
+ * Does not affect the rest of Anovia.
+ */
+
+.break-zone-page {
+  --bz-cream: #faf6f0;
+  --bz-blush: #e8a0b4;
+  --bz-lavender: #c4b5fd;
+  --bz-mint: #7ecdb8;
+  --bz-peach: #f5c6a0;
+  --bz-ink: #4a3f55;
+  --bz-muted-ink: #7a6e85;
+  --bz-surface: #fffbf7;
+  --bz-border: #ecd9d0;
+  --bz-shadow: 0 10px 30px rgb(232 160 180 / 0.08), 0 2px 8px rgb(74 63 85 / 0.05);
+  --break-zone-display-font: "Nunito", "Trebuchet MS", "Segoe UI", sans-serif;
+  --break-zone-radius: 1.35rem;
+
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: calc(var(--break-zone-radius) + 0.25rem);
+  border: 1px solid var(--bz-border);
+  background-color: var(--bz-cream);
+  background-image:
+    radial-gradient(circle at 12% 18%, rgb(196 181 253 / 0.16) 0 2px, transparent 2px),
+    radial-gradient(circle at 78% 12%, rgb(232 160 180 / 0.14) 0 2px, transparent 2px),
+    radial-gradient(circle at 88% 72%, rgb(126 205 184 / 0.12) 0 2px, transparent 2px),
+    radial-gradient(circle at 20% 82%, rgb(245 198 160 / 0.14) 0 1.5px, transparent 1.5px),
+    radial-gradient(circle at 52% 46%, rgb(196 181 253 / 0.08) 0 1px, transparent 1px);
+  background-size:
+    120px 120px,
+    140px 140px,
+    160px 160px,
+    100px 100px,
+    80px 80px;
+  padding: 1.25rem;
+  color: var(--bz-ink);
+}
+
+[data-theme="dark"] .break-zone-page {
+  --bz-cream: #17121d;
+  --bz-blush: #f0a8bc;
+  --bz-lavender: #d4c4ff;
+  --bz-mint: #8fdcc6;
+  --bz-peach: #ffcfaa;
+  --bz-ink: #f7eef8;
+  --bz-muted-ink: #c9b8cf;
+  --bz-surface: #221b2a;
+  --bz-border: #3d3148;
+  --bz-shadow: 0 12px 32px rgb(0 0 0 / 0.28), 0 2px 8px rgb(240 168 188 / 0.08);
+
+  background-image:
+    radial-gradient(circle at 12% 18%, rgb(212 196 255 / 0.12) 0 2px, transparent 2px),
+    radial-gradient(circle at 78% 12%, rgb(240 168 188 / 0.1) 0 2px, transparent 2px),
+    radial-gradient(circle at 88% 72%, rgb(143 220 198 / 0.1) 0 2px, transparent 2px),
+    radial-gradient(circle at 20% 82%, rgb(255 207 170 / 0.1) 0 1.5px, transparent 1.5px);
+}
+
+.break-zone-page::before,
+.break-zone-page::after {
+  content: "✦";
+  position: absolute;
+  z-index: 0;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--bz-lavender) 55%, transparent);
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.break-zone-page::before {
+  top: 1rem;
+  right: 1.25rem;
+}
+
+.break-zone-page::after {
+  bottom: 1.25rem;
+  left: 1rem;
+  content: "♡";
+  color: color-mix(in srgb, var(--bz-blush) 50%, transparent);
+}
+
+.break-zone-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+.break-zone-display {
+  font-family: var(--break-zone-display-font);
+}
+
+.break-zone-subtle {
+  color: var(--bz-muted-ink);
+}
+
+.break-zone-card {
+  border-radius: var(--break-zone-radius);
+  border-color: var(--bz-border);
+  background: var(--bz-surface);
+  box-shadow: var(--bz-shadow);
+  padding: 1.35rem;
+}
+
+.break-zone-card--message {
+  border-color: color-mix(in srgb, var(--bz-lavender) 35%, var(--bz-border));
+  background: color-mix(in srgb, var(--bz-lavender) 8%, var(--bz-surface));
+}
+
+.break-zone-card--timer {
+  border-color: color-mix(in srgb, var(--bz-blush) 40%, var(--bz-border));
+}
+
+.break-zone-card--trivia {
+  border-color: color-mix(in srgb, var(--bz-lavender) 40%, var(--bz-border));
+}
+
+.break-zone-card--reaction {
+  border-color: color-mix(in srgb, var(--bz-mint) 40%, var(--bz-border));
+}
+
+.break-zone-card--fact {
+  border-color: color-mix(in srgb, var(--bz-peach) 45%, var(--bz-border));
+}
+
+.break-zone-card--timer .break-zone-card-accent {
+  color: var(--bz-blush);
+}
+
+.break-zone-card--trivia .break-zone-card-accent {
+  color: color-mix(in srgb, var(--bz-lavender) 80%, var(--bz-ink));
+}
+
+.break-zone-card--reaction .break-zone-card-accent {
+  color: color-mix(in srgb, var(--bz-mint) 75%, var(--bz-ink));
+}
+
+.break-zone-card--fact .break-zone-card-accent {
+  color: color-mix(in srgb, var(--bz-peach) 80%, var(--bz-ink));
+}
+
+.break-zone-card .break-zone-card-header h2,
+.break-zone-card .break-zone-card-header h3 {
+  font-family: var(--break-zone-display-font);
+  color: var(--bz-ink);
+}
+
+.break-zone-chip {
+  border-radius: 9999px;
+  border: 1px solid var(--bz-border);
+  background: color-mix(in srgb, var(--bz-surface) 88%, var(--bz-cream));
+}
+
+.break-zone-chip--timer.is-active {
+  border-color: color-mix(in srgb, var(--bz-blush) 55%, var(--bz-border));
+  background: color-mix(in srgb, var(--bz-blush) 12%, var(--bz-surface));
+  color: color-mix(in srgb, var(--bz-blush) 85%, var(--bz-ink));
+}
+
+.break-zone-chip--trivia.is-active {
+  border-color: color-mix(in srgb, var(--bz-lavender) 55%, var(--bz-border));
+  background: color-mix(in srgb, var(--bz-lavender) 12%, var(--bz-surface));
+}
+
+.break-zone-progress--timer {
+  background: color-mix(in srgb, var(--bz-blush) 88%, white);
+}
+
+.break-zone-progress--trivia {
+  background: color-mix(in srgb, var(--bz-lavender) 85%, white);
+}
+
+.break-zone-target--ready {
+  border-color: color-mix(in srgb, var(--bz-mint) 55%, var(--bz-border));
+  background: color-mix(in srgb, var(--bz-mint) 14%, var(--bz-surface));
+  color: color-mix(in srgb, var(--bz-mint) 80%, var(--bz-ink));
+}
+
+.break-zone-quote {
+  border-color: color-mix(in srgb, var(--bz-peach) 40%, var(--bz-border));
+  background: color-mix(in srgb, var(--bz-peach) 10%, var(--bz-surface));
+}
+
+.break-zone-btn-primary {
+  background: color-mix(in srgb, var(--bz-blush) 92%, white);
+  color: #fff;
+}
+
+.break-zone-btn-primary:hover {
+  background: color-mix(in srgb, var(--bz-blush) 82%, white);
+}
+
+.break-zone-btn-secondary {
+  border: 1px solid var(--bz-border);
+  background: var(--bz-surface);
+  color: var(--bz-ink);
+}
+
+.break-zone-btn-secondary:hover {
+  background: color-mix(in srgb, var(--bz-cream) 70%, var(--bz-surface));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .break-zone-page::before,
+  .break-zone-page::after {
+    opacity: 0.35;
+  }
+
+  .break-zone-target--ready {
+    animation: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .break-zone-page {
+    padding: 1.75rem;
+  }
+}

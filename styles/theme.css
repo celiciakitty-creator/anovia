@@ -1,0 +1,206 @@
+/*
+ * Anovia design system — semantic theme tokens.
+ * Applied mode: data-theme="light" | "dark"
+ * Stored preference: data-theme-mode="light" | "dark" | "system"
+ * Color presets: data-color-preset="anovia" | "ocean" | "lavender" | "forest" | "rose" | "kawaiiCozy" | "custom"
+ */
+
+/* ── Light mode (default) ─────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --secondary: #64748b;
+  --border: #e2e8f0;
+  --muted: #f1f5f9;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+
+  --muted-foreground: #64748b;
+  --primary-foreground: #ffffff;
+  --accent-foreground: #ffffff;
+  --sidebar: #0f172a;
+  --sidebar-foreground: #94a3b8;
+  --sidebar-active: #ffffff;
+  --overlay: rgb(0 0 0 / 0.4);
+
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 1px 3px rgb(0 0 0 / 0.06);
+  --navbar-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.06);
+  --hover-overlay: rgb(0 0 0 / 0.04);
+  --input-background: #f1f5f9;
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #0b1120;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --secondary: #94a3b8;
+  --border: #334155;
+  --muted: #162032;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+
+  --muted-foreground: #94a3b8;
+  --primary-foreground: #ffffff;
+  --accent-foreground: #0f172a;
+  --sidebar: #020617;
+  --sidebar-foreground: #94a3b8;
+  --sidebar-active: #f8fafc;
+  --overlay: rgb(0 0 0 / 0.65);
+
+  --card-shadow: 0 1px 3px rgb(0 0 0 / 0.25), 0 4px 16px rgb(0 0 0 / 0.2);
+  --navbar-shadow: 0 1px 3px rgb(0 0 0 / 0.3), 0 6px 20px rgb(0 0 0 / 0.25);
+  --hover-overlay: rgb(255 255 255 / 0.06);
+  --input-background: #162032;
+}
+
+/* ── Color presets: Anovia (default) ─────────────────────────────── */
+:root,
+[data-color-preset="anovia"] {
+  --primary: #4f46e5;
+  --accent: #818cf8;
+}
+
+[data-theme="dark"][data-color-preset="anovia"] {
+  --primary: #6366f1;
+  --accent: #a5b4fc;
+}
+
+/* ── Color presets: Ocean ─────────────────────────────────────────── */
+[data-color-preset="ocean"] {
+  --primary: #0284c7;
+  --accent: #38bdf8;
+}
+
+[data-theme="dark"][data-color-preset="ocean"] {
+  --primary: #0ea5e9;
+  --accent: #7dd3fc;
+}
+
+/* ── Color presets: Lavender ──────────────────────────────────────── */
+[data-color-preset="lavender"] {
+  --primary: #7c3aed;
+  --accent: #a78bfa;
+}
+
+[data-theme="dark"][data-color-preset="lavender"] {
+  --primary: #8b5cf6;
+  --accent: #c4b5fd;
+}
+
+/* ── Color presets: Forest ────────────────────────────────────────── */
+[data-color-preset="forest"] {
+  --primary: #059669;
+  --accent: #34d399;
+}
+
+[data-theme="dark"][data-color-preset="forest"] {
+  --primary: #10b981;
+  --accent: #6ee7b7;
+}
+
+/* ── Color presets: Rose ──────────────────────────────────────────── */
+[data-color-preset="rose"] {
+  --primary: #e11d48;
+  --accent: #fb7185;
+}
+
+[data-theme="dark"][data-color-preset="rose"] {
+  --primary: #f43f5e;
+  --accent: #fda4af;
+}
+
+/* ── Color presets: Kawaii Cozy ───────────────────────────────────── */
+[data-color-preset="kawaiiCozy"] {
+  --primary: #e8a0b4;
+  --accent: #c4b5fd;
+}
+
+[data-theme="light"][data-color-preset="kawaiiCozy"] {
+  --background: #faf6f0;
+  --foreground: #4a3f55;
+  --card: #fffbf7;
+  --secondary: #9a8aa6;
+  --border: #ecd9d0;
+  --muted: #f5efe8;
+  --success: #7ecdb8;
+  --warning: #f5c6a0;
+  --danger: #e38a9a;
+  --muted-foreground: #7a6e85;
+  --primary-foreground: #ffffff;
+  --accent-foreground: #4a3f55;
+  --input-background: #f5efe8;
+  --card-shadow: 0 8px 24px rgb(232 160 180 / 0.08), 0 2px 8px rgb(74 63 85 / 0.05);
+  --navbar-shadow: 0 4px 16px rgb(232 160 180 / 0.1), 0 2px 8px rgb(74 63 85 / 0.05);
+}
+
+[data-theme="dark"][data-color-preset="kawaiiCozy"] {
+  --primary: #f0a8bc;
+  --accent: #d4c4ff;
+  --background: #17121d;
+  --foreground: #f7eef8;
+  --card: #221b2a;
+  --secondary: #c9b8cf;
+  --border: #3d3148;
+  --muted: #241c2d;
+  --success: #8fdcc6;
+  --warning: #ffcfaa;
+  --danger: #f0a0b0;
+  --muted-foreground: #c9b8cf;
+  --primary-foreground: #2a1824;
+  --accent-foreground: #221b2a;
+  --input-background: #241c2d;
+  --card-shadow: 0 10px 28px rgb(0 0 0 / 0.28), 0 2px 8px rgb(240 168 188 / 0.08);
+  --navbar-shadow: 0 8px 24px rgb(0 0 0 / 0.32), 0 2px 8px rgb(240 168 188 / 0.06);
+}
+
+/* Custom preset values are applied inline via ThemeProvider */
+
+/* ── Tailwind v4 token bridge ─────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-overlay: var(--overlay);
+}
+
+/* ── Interactive polish ───────────────────────────────────────────── */
+.theme-surface-hover {
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.theme-surface-hover:hover {
+  background-color: color-mix(in srgb, var(--muted) 80%, var(--card));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-surface-hover {
+    transition: none;
+  }
+}
