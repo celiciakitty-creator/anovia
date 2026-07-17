@@ -198,8 +198,17 @@ CREATE POLICY "profiles_update_own"
 COMMENT ON POLICY "profiles_update_own" ON public.profiles IS
   'Users can update only their own profile.';
 
--- Profile INSERT is handled by handle_new_user trigger (SECURITY DEFINER).
--- No direct INSERT policy for authenticated role.
+-- Users may insert their own profile row when the sign-up trigger did not run.
+CREATE POLICY "profiles_insert_own"
+  ON public.profiles
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (id = auth.uid());
+
+COMMENT ON POLICY "profiles_insert_own" ON public.profiles IS
+  'Users can create their own profile row if missing (id must match auth.uid()).';
+
+-- Profile INSERT is also handled by handle_new_user trigger (SECURITY DEFINER).
 
 -- ---- projects policies ----
 

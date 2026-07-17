@@ -1,44 +1,64 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { UserAvatar } from "@/components/profile";
 import { Button } from "@/components/ui";
 import { useHydrated } from "@/hooks/useHydrated";
-import { getAuthProfile, type AuthProfile } from "@/lib/auth-utils";
+import { ensureOwnProfile } from "@/lib/profile-db";
+import { getProfileLabel } from "@/lib/profile-utils";
 import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
+import type { UserProfile } from "@/types/profile";
 
 export function UserMenu() {
+  const router = useRouter();
   const isHydrated = useHydrated();
-  const [profile, setProfile] = useState<AuthProfile | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const loaded = await ensureOwnProfile(supabase);
+      setProfile(loaded);
+    } catch {
+      setProfile(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isHydrated) return;
 
     const supabase = createClient();
 
-    const loadUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setProfile(data.user ? getAuthProfile(data.user) : null);
-      setIsLoading(false);
-    };
-
-    void loadUser();
-
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setProfile(session?.user ? getAuthProfile(session.user) : null);
-      setIsLoading(false);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        session?.user &&
+        (event === "INITIAL_SESSION" ||
+          event === "SIGNED_IN" ||
+          event === "USER_UPDATED")
+      ) {
+        void loadProfile();
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setIsLoading(false);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [isHydrated]);
+  }, [isHydrated, loadProfile]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,11 +66,15 @@ export function UserMenu() {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        profileButtonRef.current?.focus();
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        profileButtonRef.current?.focus();
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -65,32 +89,41 @@ export function UserMenu() {
     setIsSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/auth";
+    router.refresh();
+    router.push("/auth");
   };
 
-  const initials = isLoading || !isHydrated ? "…" : (profile?.initials ?? "?");
-  const ariaLabel =
-    profile?.label != null
-      ? `Signed in as ${profile.label}`
-      : isLoading
-        ? "Loading account"
-        : "Account menu";
+  const displayName = profile ? getProfileLabel(profile) : "Account";
+  const email = profile?.email ?? "";
+  const ariaLabel = profile
+    ? `Signed in as ${displayName}`
+    : isLoading
+      ? "Loading account"
+      : "Account menu";
 
   return (
     <div className="relative" ref={menuRef}>
       <button
+        ref={profileButtonRef}
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          isLoading && "opacity-70"
+          "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          isLoading && "opacity-70",
+          !profile?.avatarUrl && "bg-primary text-xs font-semibold text-primary-foreground"
         )}
         aria-label={ariaLabel}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         disabled={isSigningOut}
       >
-        {initials}
+        {isLoading || !isHydrated ? (
+          "…"
+        ) : profile ? (
+          <UserAvatar profile={profile} size="sm" className="h-9 w-9" />
+        ) : (
+          "U"
+        )}
       </button>
 
       {isOpen ? (
@@ -101,25 +134,36 @@ export function UserMenu() {
         >
           <div className="mb-3 border-b border-border pb-3">
             <p className="truncate text-sm font-medium text-foreground">
-              {profile?.label ?? "Account"}
+              {displayName}
             </p>
-            {profile?.email ? (
+            {email ? (
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {profile.email}
+                {email}
               </p>
             ) : null}
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="w-full"
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-            role="menuitem"
-          >
-            {isSigningOut ? "Signing out…" : "Sign out"}
-          </Button>
+
+          <div className="space-y-2">
+            <Link
+              href="/profile"
+              role="menuitem"
+              className="flex w-full items-center rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              onClick={() => setIsOpen(false)}
+            >
+              Profile
+            </Link>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              role="menuitem"
+            >
+              {isSigningOut ? "Signing out…" : "Sign out"}
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>
