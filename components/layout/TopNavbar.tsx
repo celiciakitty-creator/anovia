@@ -1,5 +1,6 @@
 "use client";
 
+import { UserMenu } from "@/components/auth";
 import { Button } from "@/components/ui";
 import { NotificationBell, AskKizunaButton } from "@/components/kizuna";
 import { ThemeToggle } from "@/components/theme";
@@ -100,13 +101,7 @@ export function TopNavbar({
 
         <NewMenu />
 
-        <button
-          type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-          aria-label="User menu"
-        >
-          CK
-        </button>
+        <UserMenu />
       </div>
     </header>
   );

@@ -1,24 +1,32 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
 import { RevealOnScroll } from "@/components/motion";
-import { KanbanBoard } from "@/components/tasks/KanbanBoard";
-import { TaskForm } from "@/components/tasks/TaskForm";
+import { KanbanBoard, TaskFiltersBar, TaskForm } from "@/components/tasks";
 import { MainLayout } from "@/components/layout";
 import { Button, DeleteConfirmModal } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace";
+import {
+  DEFAULT_TASK_FILTERS,
+  filterTasks,
+} from "@/lib/task-filter-utils";
 import type { Task, TaskStatus } from "@/types/task";
 
 function TasksPageContent() {
-  const { tasks, deleteTask } = useWorkspace();
+  const { tasks, deleteTask, isLoaded, loadError } = useWorkspace();
   const searchParams = useSearchParams();
   const shouldOpenCreate = searchParams.get("create") === "1";
   const [formOpen, setFormOpen] = useState(shouldOpenCreate);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [defaultStatus, setDefaultStatus] = useState<TaskStatus>("todo");
   const [deletingTask, setDeletingTask] = useState<Task | undefined>();
+  const [filters, setFilters] = useState(DEFAULT_TASK_FILTERS);
+
+  const filteredTasks = useMemo(
+    () => filterTasks(tasks, filters),
+    [tasks, filters]
+  );
 
   const openCreate = (status: TaskStatus = "todo") => {
     setEditingTask(undefined);
@@ -31,9 +39,22 @@ function TasksPageContent() {
     setFormOpen(true);
   };
 
+  if (!isLoaded) {
+    return (
+      <MainLayout subtitle="Tasks">
+        <p className="text-sm text-muted-foreground">Loading tasks…</p>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout subtitle="Tasks">
       <div className="mx-auto max-w-[1400px]">
+        {loadError ? (
+          <p className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            {loadError}
+          </p>
+        ) : null}
         <RevealOnScroll>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -48,9 +69,21 @@ function TasksPageContent() {
           </div>
         </RevealOnScroll>
 
+        <RevealOnScroll delay={40}>
+          <TaskFiltersBar
+            filters={filters}
+            onChange={setFilters}
+            filteredCount={filteredTasks.length}
+            totalCount={tasks.length}
+          />
+        </RevealOnScroll>
+
         <RevealOnScroll delay={80}>
           <KanbanBoard
-            tasks={tasks}
+            tasks={filteredTasks}
+            totalTaskCount={tasks.length}
+            filters={filters}
+            onClearFilters={() => setFilters(DEFAULT_TASK_FILTERS)}
             onEdit={openEdit}
             onDelete={setDeletingTask}
             onCreate={openCreate}
@@ -68,8 +101,8 @@ function TasksPageContent() {
       <DeleteConfirmModal
         open={Boolean(deletingTask)}
         onClose={() => setDeletingTask(undefined)}
-        onConfirm={() => {
-          if (deletingTask) deleteTask(deletingTask.id);
+        onConfirm={async () => {
+          if (deletingTask) await deleteTask(deletingTask.id);
         }}
         title="Delete task"
         description={`Are you sure you want to delete "${deletingTask?.title}"? This action cannot be undone.`}

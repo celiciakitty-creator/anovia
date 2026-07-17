@@ -17,6 +17,7 @@ export type Label = {
 export type Task = {
   id: string;
   title: string;
+  description: string;
   projectId: string;
   assigneeId: string | null;
   dueDate: string;
@@ -32,6 +33,7 @@ export type Task = {
 
 export type TaskInput = {
   title: string;
+  description: string;
   projectId: string;
   assigneeId: string | null;
   dueDate: string;
@@ -40,6 +42,9 @@ export type TaskInput = {
   estimatedMinutes: number;
   labelIds: string[];
 };
+
+/** Maximum characters allowed in a task description. */
+export const TASK_DESCRIPTION_MAX_LENGTH = 2000;
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [
   "todo",

@@ -13,20 +13,37 @@ import { useCelebration } from "@/components/celebration";
 import { SEED_WORKSPACE } from "@/data/seed-workspace";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useStorageHydration } from "@/hooks/useStorageHydration";
-import { readWorkspace, writeWorkspace } from "@/lib/workspace-storage";
-import { resolveTaskCompletionFields } from "@/lib/completion-utils";
-import { generateId } from "@/lib/id";
 import { buildCalendarEvents } from "@/lib/calendar-utils";
+import {
+  createProject as createProjectDb,
+  createTask as createTaskDb,
+  deleteProject as deleteProjectDb,
+  deleteTask as deleteTaskDb,
+  getAuthenticatedUserId,
+  getProfiles,
+  getProjects,
+  getTasks,
+  updateProject as updateProjectDb,
+  updateTask as updateTaskDb,
+  updateTaskStatus as updateTaskStatusDb,
+} from "@/lib/workspace-db";
+import {
+  readWorkspaceLocal,
+  writeWorkspaceLocal,
+} from "@/lib/workspace-storage";
 import {
   enrichWorkspace,
   type EnrichedProject,
 } from "@/lib/workspace-utils";
+import { createClient } from "@/utils/supabase/client";
+import { DEFAULT_COMPLETION_META } from "@/types/completion";
 import type { CompletionMeta } from "@/types/completion";
 import type { CalendarEvent, CalendarEventInput, CalendarDisplayEvent } from "@/types/calendar";
 import type { Project, ProjectInput } from "@/types/project";
 import type { Task, TaskInput } from "@/types/task";
 import type { Label, User } from "@/types";
 import type { WorkspaceData } from "@/types/workspace";
+import { generateId } from "@/lib/id";
 
 type WorkspaceContextValue = {
   users: User[];
@@ -36,14 +53,16 @@ type WorkspaceContextValue = {
   events: CalendarEvent[];
   calendarEvents: CalendarDisplayEvent[];
   completionMeta: CompletionMeta;
+  currentUserId: string | null;
   isLoaded: boolean;
-  createProject: (input: ProjectInput) => Project;
-  updateProject: (id: string, input: ProjectInput) => void;
-  deleteProject: (id: string) => void;
-  createTask: (input: TaskInput) => Task;
-  updateTask: (id: string, input: TaskInput) => void;
-  updateTaskStatus: (id: string, status: Task["status"]) => void;
-  deleteTask: (id: string) => void;
+  loadError: string | null;
+  createProject: (input: ProjectInput) => Promise<Project>;
+  updateProject: (id: string, input: ProjectInput) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  createTask: (input: TaskInput) => Promise<Task>;
+  updateTask: (id: string, input: TaskInput) => Promise<void>;
+  updateTaskStatus: (id: string, status: Task["status"]) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
   createEvent: (input: CalendarEventInput) => CalendarEvent;
   updateEvent: (id: string, input: CalendarEventInput) => void;
   deleteEvent: (id: string) => void;
@@ -56,18 +75,33 @@ type WorkspaceContextValue = {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-/** Fixed date for SSR/pre-hydration calendar deadline calculations. */
 const SSR_CALENDAR_REFERENCE = new Date(Date.UTC(2026, 6, 15, 12, 0, 0));
 
-function persist(data: WorkspaceData) {
-  writeWorkspace(data);
+const EMPTY_WORKSPACE: WorkspaceData = {
+  users: [],
+  projects: [],
+  tasks: [],
+  labels: SEED_WORKSPACE.labels,
+  events: [],
+  completionMeta: DEFAULT_COMPLETION_META,
+};
+
+function persistLocalSlice(data: WorkspaceData) {
+  writeWorkspaceLocal({
+    labels: data.labels,
+    events: data.events,
+    completionMeta: data.completionMeta,
+  });
 }
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { triggerTaskCompletion, triggerProjectCompletion } = useCelebration();
   const storageReady = useStorageHydration();
   const isHydrated = useHydrated();
-  const [data, setData] = useState<WorkspaceData>(SEED_WORKSPACE);
+  const [data, setData] = useState<WorkspaceData>(EMPTY_WORKSPACE);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const prevProgressRef = useRef<Map<string, number>>(new Map());
   const progressInitializedRef = useRef(false);
   const workspaceLoadedRef = useRef(false);
@@ -75,76 +109,106 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!storageReady || workspaceLoadedRef.current) return;
     workspaceLoadedRef.current = true;
-    setData(readWorkspace());
+
+    void (async () => {
+      const local = readWorkspaceLocal();
+      setData((current) => ({
+        ...current,
+        labels: local.labels,
+        events: local.events,
+        completionMeta: local.completionMeta,
+      }));
+
+      try {
+        const supabase = createClient();
+        const userId = await getAuthenticatedUserId(supabase);
+        const [projects, tasks, users] = await Promise.all([
+          getProjects(supabase),
+          getTasks(supabase),
+          getProfiles(supabase),
+        ]);
+
+        setCurrentUserId(userId);
+        setData((current) => ({
+          ...current,
+          users,
+          projects,
+          tasks,
+        }));
+        setLoadError(null);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unable to load workspace data.";
+        setLoadError(message);
+      } finally {
+        setIsLoaded(true);
+      }
+    })();
   }, [storageReady]);
 
-  const update = useCallback((updater: (current: WorkspaceData) => WorkspaceData) => {
-    setData((current) => {
-      const next = updater(current);
-      persist(next);
-      return next;
-    });
-  }, []);
+  const updateLocal = useCallback(
+    (updater: (current: WorkspaceData) => WorkspaceData) => {
+      setData((current) => {
+        const next = updater(current);
+        persistLocalSlice(next);
+        return next;
+      });
+    },
+    []
+  );
 
   const createProject = useCallback(
-    (input: ProjectInput): Project => {
-      const now = new Date().toISOString();
-      const project: Project = {
-        id: generateId("proj"),
-        ...input,
-        createdAt: now,
-        updatedAt: now,
-      };
-      update((current) => ({
+    async (input: ProjectInput): Promise<Project> => {
+      const supabase = createClient();
+      const ownerId = currentUserId ?? (await getAuthenticatedUserId(supabase));
+      const project = await createProjectDb(supabase, input, ownerId);
+      setData((current) => ({
         ...current,
-        projects: [...(current.projects ?? []), project],
+        projects: [project, ...(current.projects ?? [])],
       }));
       return project;
     },
-    [update]
+    [currentUserId]
   );
 
   const updateProject = useCallback(
-    (id: string, input: ProjectInput) => {
-      update((current) => ({
+    async (id: string, input: ProjectInput): Promise<void> => {
+      const supabase = createClient();
+      const project = await updateProjectDb(supabase, id, input);
+      setData((current) => ({
         ...current,
-        projects: (current.projects ?? []).map((project) =>
-          project.id === id
-            ? { ...project, ...input, updatedAt: new Date().toISOString() }
-            : project
+        projects: (current.projects ?? []).map((item) =>
+          item.id === id ? project : item
         ),
       }));
     },
-    [update]
+    []
   );
 
-  const deleteProject = useCallback(
-    (id: string) => {
-      update((current) => ({
-        ...current,
-        projects: (current.projects ?? []).filter((p) => p.id !== id),
-        tasks: (current.tasks ?? []).filter((t) => t.projectId !== id),
-        events: (current.events ?? []).filter((e) => e.projectId !== id),
-      }));
-    },
-    [update]
-  );
+  const deleteProject = useCallback(async (id: string): Promise<void> => {
+    const supabase = createClient();
+    await deleteProjectDb(supabase, id);
+    setData((current) => ({
+      ...current,
+      projects: (current.projects ?? []).filter((project) => project.id !== id),
+      tasks: (current.tasks ?? []).filter((task) => task.projectId !== id),
+      events: (current.events ?? []).filter((event) => event.projectId !== id),
+    }));
+  }, []);
 
   const createTask = useCallback(
-    (input: TaskInput): Task => {
-      const now = new Date().toISOString();
-      const task: Task = {
-        id: generateId("task"),
-        ...input,
-        createdAt: now,
-        updatedAt: now,
-        completedAt: input.status === "completed" ? now : null,
-      };
+    async (input: TaskInput): Promise<Task> => {
+      const supabase = createClient();
+      const createdBy =
+        currentUserId ?? (await getAuthenticatedUserId(supabase));
+      const task = await createTaskDb(supabase, input, createdBy);
 
       let celebrationPayload: { taskTitle: string; isFirstEver: boolean } | null =
         null;
 
-      update((current) => {
+      setData((current) => {
         let completionMeta = current.completionMeta;
         if (input.status === "completed") {
           celebrationPayload = {
@@ -159,11 +223,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        return {
+        const next = {
           ...current,
           completionMeta,
-          tasks: [...(current.tasks ?? []), task],
+          tasks: [task, ...(current.tasks ?? [])],
         };
+        persistLocalSlice(next);
+        return next;
       });
 
       if (celebrationPayload) {
@@ -172,28 +238,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       return task;
     },
-    [triggerTaskCompletion, update]
+    [currentUserId, triggerTaskCompletion]
   );
 
   const updateTask = useCallback(
-    (id: string, input: TaskInput) => {
+    async (id: string, input: TaskInput): Promise<void> => {
+      const supabase = createClient();
+      const existing = data.tasks.find((task) => task.id === id);
+      if (!existing) return;
+
       let celebrationPayload: { taskTitle: string; isFirstEver: boolean } | null =
         null;
 
-      update((current) => {
-        const task = (current.tasks ?? []).find((item) => item.id === id);
-        if (!task) return current;
+      const task = await updateTaskDb(supabase, id, input, existing);
+      const wasCompleted = existing.status === "completed";
+      const isNewlyCompleted = input.status === "completed" && !wasCompleted;
 
-        const now = new Date().toISOString();
-        const wasCompleted = task.status === "completed";
-        const completionFields = resolveTaskCompletionFields(
-          task,
-          input.status,
-          now
-        );
-        const isNewlyCompleted =
-          input.status === "completed" && !wasCompleted;
-
+      setData((current) => {
         let completionMeta = current.completionMeta;
         if (isNewlyCompleted) {
           celebrationPayload = {
@@ -208,47 +269,42 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        return {
+        const next = {
           ...current,
           completionMeta,
           tasks: (current.tasks ?? []).map((item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  ...input,
-                  ...completionFields,
-                  updatedAt: now,
-                }
-              : item
+            item.id === id ? task : item
           ),
         };
+        persistLocalSlice(next);
+        return next;
       });
 
       if (celebrationPayload) {
         triggerTaskCompletion(celebrationPayload);
       }
     },
-    [triggerTaskCompletion, update]
+    [data.tasks, triggerTaskCompletion]
   );
 
   const updateTaskStatus = useCallback(
-    (id: string, status: Task["status"]) => {
+    async (id: string, status: Task["status"]): Promise<void> => {
+      const supabase = createClient();
+      const existing = data.tasks.find((task) => task.id === id);
+      if (!existing) return;
+
       let celebrationPayload: { taskTitle: string; isFirstEver: boolean } | null =
         null;
 
-      update((current) => {
-        const task = (current.tasks ?? []).find((item) => item.id === id);
-        if (!task) return current;
+      const task = await updateTaskStatusDb(supabase, id, status, existing);
+      const wasCompleted = existing.status === "completed";
+      const isNewlyCompleted = status === "completed" && !wasCompleted;
 
-        const now = new Date().toISOString();
-        const wasCompleted = task.status === "completed";
-        const completionFields = resolveTaskCompletionFields(task, status, now);
-        const isNewlyCompleted = status === "completed" && !wasCompleted;
-
+      setData((current) => {
         let completionMeta = current.completionMeta;
         if (isNewlyCompleted) {
           celebrationPayload = {
-            taskTitle: task.title,
+            taskTitle: existing.title,
             isFirstEver: !completionMeta.hasCelebratedFirstCompletion,
           };
           if (!completionMeta.hasCelebratedFirstCompletion) {
@@ -259,33 +315,32 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        return {
+        const next = {
           ...current,
           completionMeta,
           tasks: (current.tasks ?? []).map((item) =>
-            item.id === id
-              ? { ...item, ...completionFields, updatedAt: now }
-              : item
+            item.id === id ? task : item
           ),
         };
+        persistLocalSlice(next);
+        return next;
       });
 
       if (celebrationPayload) {
         triggerTaskCompletion(celebrationPayload);
       }
     },
-    [triggerTaskCompletion, update]
+    [data.tasks, triggerTaskCompletion]
   );
 
-  const deleteTask = useCallback(
-    (id: string) => {
-      update((current) => ({
-        ...current,
-        tasks: (current.tasks ?? []).filter((t) => t.id !== id),
-      }));
-    },
-    [update]
-  );
+  const deleteTask = useCallback(async (id: string): Promise<void> => {
+    const supabase = createClient();
+    await deleteTaskDb(supabase, id);
+    setData((current) => ({
+      ...current,
+      tasks: (current.tasks ?? []).filter((task) => task.id !== id),
+    }));
+  }, []);
 
   const createEvent = useCallback(
     (input: CalendarEventInput): CalendarEvent => {
@@ -296,18 +351,18 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         createdAt: now,
         updatedAt: now,
       };
-      update((current) => ({
+      updateLocal((current) => ({
         ...current,
         events: [...(current.events ?? []), event],
       }));
       return event;
     },
-    [update]
+    [updateLocal]
   );
 
   const updateEvent = useCallback(
     (id: string, input: CalendarEventInput) => {
-      update((current) => ({
+      updateLocal((current) => ({
         ...current,
         events: (current.events ?? []).map((event) =>
           event.id === id
@@ -316,22 +371,22 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         ),
       }));
     },
-    [update]
+    [updateLocal]
   );
 
   const deleteEvent = useCallback(
     (id: string) => {
-      update((current) => ({
+      updateLocal((current) => ({
         ...current,
-        events: (current.events ?? []).filter((e) => e.id !== id),
+        events: (current.events ?? []).filter((event) => event.id !== id),
       }));
     },
-    [update]
+    [updateLocal]
   );
 
   const setCompletedSectionExpanded = useCallback(
     (expanded: boolean) => {
-      update((current) => ({
+      updateLocal((current) => ({
         ...current,
         completionMeta: {
           ...current.completionMeta,
@@ -339,7 +394,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         },
       }));
     },
-    [update]
+    [updateLocal]
   );
 
   const enriched = useMemo(() => enrichWorkspace(data), [data]);
@@ -375,7 +430,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
     const projectIds = newlyComplete.map((project) => project.id);
     window.setTimeout(() => {
-      update((current) => ({
+      updateLocal((current) => ({
         ...current,
         completionMeta: {
           ...current.completionMeta,
@@ -388,7 +443,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         },
       }));
     }, 0);
-  }, [data, enriched, triggerProjectCompletion, update]);
+  }, [data, enriched, triggerProjectCompletion, updateLocal]);
 
   const calendarEvents = useMemo(() => {
     try {
@@ -408,7 +463,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       events: Array.isArray(data.events) ? data.events : [],
       calendarEvents: calendarEvents ?? [],
       completionMeta: data.completionMeta,
-      isLoaded: storageReady,
+      currentUserId,
+      isLoaded,
+      loadError,
       createProject,
       updateProject,
       deleteProject,
@@ -429,6 +486,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     data,
     enriched,
     calendarEvents,
+    currentUserId,
+    isLoaded,
+    loadError,
     createProject,
     updateProject,
     deleteProject,
@@ -440,7 +500,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     updateEvent,
     deleteEvent,
     setCompletedSectionExpanded,
-    storageReady,
   ]);
 
   return (

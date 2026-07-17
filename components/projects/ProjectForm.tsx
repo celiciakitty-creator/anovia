@@ -51,20 +51,33 @@ function ProjectFormContent({ project, onClose, onSaved }: ProjectFormContentPro
     project ? projectToForm(project) : emptyForm
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const result = validateProjectInput(form);
     setErrors(result.errors);
     if (!result.valid) return;
 
-    if (project) {
-      updateProject(project.id, form);
-    } else {
-      createProject(form);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      if (project) {
+        await updateProject(project.id, form);
+      } else {
+        await createProject(form);
+      }
+      onSaved?.();
+      onClose();
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Unable to save project."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    onSaved?.();
-    onClose();
   };
 
   const toggleMember = (userId: string) => {
@@ -142,12 +155,21 @@ function ProjectFormContent({ project, onClose, onSaved }: ProjectFormContentPro
             })}
           </div>
         </fieldset>
+        {submitError ? (
+          <p className="text-sm text-danger" role="alert">
+            {submitError}
+          </p>
+        ) : null}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">
-            {isEditing ? "Save changes" : "Create project"}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting
+              ? "Saving…"
+              : isEditing
+                ? "Save changes"
+                : "Create project"}
           </Button>
         </div>
       </form>

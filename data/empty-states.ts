@@ -27,6 +27,15 @@ export const PAGE_EMPTY_STATES = {
     emoji: "✅",
     actionLabel: "Create task",
   },
+  tasksFiltered: {
+    title: "No tasks match these filters.",
+    description:
+      "Try adjusting your filters or clear them to see all tasks again.",
+    kizunaMessage:
+      "Sometimes a narrower view helps — other times, a reset is the fastest path forward.",
+    emoji: "🔍",
+    actionLabel: "Clear filters",
+  },
   calendarUpcoming: {
     title: "Your calendar is open",
     description:

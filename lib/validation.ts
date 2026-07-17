@@ -1,3 +1,5 @@
+import { TASK_DESCRIPTION_MAX_LENGTH } from "@/types/task";
+
 export type ValidationResult = {
   valid: boolean;
   errors: Record<string, string>;
@@ -25,16 +27,21 @@ export function validateProjectInput(input: {
 
 export function validateTaskInput(input: {
   title: string;
+  description: string;
   projectId: string;
   dueDate: string;
   estimatedMinutes: number;
-}): ValidationResult {
+}, maxDescriptionLength = TASK_DESCRIPTION_MAX_LENGTH): ValidationResult {
   const errors: Record<string, string> = {};
 
   if (!input.title.trim()) {
     errors.title = "Task title is required.";
   } else if (input.title.trim().length < 2) {
     errors.title = "Task title must be at least 2 characters.";
+  }
+
+  if (input.description.length > maxDescriptionLength) {
+    errors.description = `Description must be ${maxDescriptionLength} characters or fewer.`;
   }
 
   if (!input.projectId) {

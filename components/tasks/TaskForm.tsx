@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input, Modal, Select } from "@/components/ui";
+import { Button, Input, Modal, Select, Textarea } from "@/components/ui";
 import { CommentThread } from "@/components/comments";
 import { useWorkspace } from "@/components/workspace";
 import { validateTaskInput } from "@/lib/validation";
 import {
   PRIORITY_LABELS,
+  TASK_DESCRIPTION_MAX_LENGTH,
   TASK_STATUS_LABELS,
 } from "@/types/task";
 import { LABEL_COLOR_STYLES } from "@/lib/workspace-utils";
@@ -33,6 +34,7 @@ const PRIORITY_OPTIONS = Object.entries(PRIORITY_LABELS).map(([value, label]) =>
 
 const emptyForm: TaskInput = {
   title: "",
+  description: "",
   projectId: "",
   assigneeId: null,
   dueDate: "",
@@ -45,6 +47,7 @@ const emptyForm: TaskInput = {
 function taskToForm(task: Task): TaskInput {
   return {
     title: task.title,
+    description: task.description,
     projectId: task.projectId,
     assigneeId: task.assigneeId,
     dueDate: task.dueDate,
@@ -80,20 +83,37 @@ function TaskFormContent({
         }
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const result = validateTaskInput(form);
+    const payload: TaskInput = {
+      ...form,
+      description: form.description.trim(),
+    };
+    const result = validateTaskInput(payload);
     setErrors(result.errors);
     if (!result.valid) return;
 
-    if (task) {
-      updateTask(task.id, form);
-    } else {
-      createTask(form);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      if (task) {
+        await updateTask(task.id, payload);
+      } else {
+        await createTask(payload);
+      }
+      onSaved?.();
+      onClose();
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Unable to save task."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    onSaved?.();
-    onClose();
   };
 
   const toggleLabel = (labelId: string) => {
@@ -121,6 +141,16 @@ function TaskFormContent({
           onChange={(e) => setForm({ ...form, title: e.target.value })}
           error={errors.title}
           required
+        />
+        <Textarea
+          label="Description"
+          name="description"
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          error={errors.description}
+          maxLength={TASK_DESCRIPTION_MAX_LENGTH}
+          rows={isEditing ? 5 : 3}
+          placeholder="Add context, acceptance criteria, or notes for this task."
         />
         <Select
           label="Project"
@@ -216,11 +246,18 @@ function TaskFormContent({
             })}
           </div>
         </fieldset>
+        {submitError ? (
+          <p className="text-sm text-danger" role="alert">
+            {submitError}
+          </p>
+        ) : null}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit">{isEditing ? "Save changes" : "Create task"}</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving…" : isEditing ? "Save changes" : "Create task"}
+          </Button>
         </div>
       </form>
 

@@ -60,7 +60,7 @@ export function TaskStatusChip({
       return;
     }
 
-    updateTaskStatus(taskId, next);
+    void updateTaskStatus(taskId, next);
     onStatusChange?.(next);
     setOpen(false);
 

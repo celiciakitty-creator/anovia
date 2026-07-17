@@ -13,7 +13,7 @@ import { useWorkspace } from "@/components/workspace";
 import type { EnrichedProject } from "@/lib/workspace-utils";
 
 function ProjectsPageContent() {
-  const { projects, deleteProject } = useWorkspace();
+  const { projects, deleteProject, isLoaded, loadError } = useWorkspace();
   const searchParams = useSearchParams();
   const shouldOpenCreate = searchParams.get("create") === "1";
   const [formOpen, setFormOpen] = useState(shouldOpenCreate);
@@ -32,9 +32,22 @@ function ProjectsPageContent() {
     setFormOpen(true);
   };
 
+  if (!isLoaded) {
+    return (
+      <MainLayout subtitle="Projects">
+        <p className="text-sm text-muted-foreground">Loading projects…</p>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout subtitle="Projects">
       <div className="mx-auto max-w-7xl">
+        {loadError ? (
+          <p className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            {loadError}
+          </p>
+        ) : null}
         <RevealOnScroll>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -84,8 +97,8 @@ function ProjectsPageContent() {
       <DeleteConfirmModal
         open={Boolean(deletingProject)}
         onClose={() => setDeletingProject(undefined)}
-        onConfirm={() => {
-          if (deletingProject) deleteProject(deletingProject.id);
+        onConfirm={async () => {
+          if (deletingProject) await deleteProject(deletingProject.id);
         }}
         title="Delete project"
         description={`Are you sure you want to delete "${deletingProject?.name}"? All associated tasks will also be removed.`}

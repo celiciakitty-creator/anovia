@@ -87,6 +87,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_1",
       title: "Review sprint backlog",
+      description:
+        "Groom the current sprint backlog, clarify acceptance criteria, and flag items that need design or engineering input before planning.",
       projectId: "proj_1",
       assigneeId: "user_1",
       dueDate: "2026-07-14",
@@ -101,6 +103,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_2",
       title: "Finalize launch messaging",
+      description:
+        "Align headline, value props, and CTA copy with brand voice. Share a draft with marketing for final sign-off before the launch site goes live.",
       projectId: "proj_1",
       assigneeId: "user_4",
       dueDate: "2026-07-15",
@@ -115,6 +119,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_3",
       title: "Update project timeline",
+      description:
+        "Refresh milestone dates in the shared timeline after the latest scope review. Call out any dependencies that could affect the launch date.",
       projectId: "proj_1",
       assigneeId: "user_3",
       dueDate: "2026-07-16",
@@ -129,6 +135,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_4",
       title: "Design homepage mockups",
+      description:
+        "Create desktop and mobile mockups for the new homepage hero, feature grid, and footer. Include accessibility notes for contrast and focus states.",
       projectId: "proj_2",
       assigneeId: "user_2",
       dueDate: "2026-07-18",
@@ -143,6 +151,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_5",
       title: "Audit accessibility compliance",
+      description:
+        "Run an WCAG 2.1 AA pass on key user flows. Document issues by severity and propose fixes for the next development sprint.",
       projectId: "proj_2",
       assigneeId: "user_1",
       dueDate: "2026-07-20",
@@ -157,6 +167,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_6",
       title: "Send weekly status report",
+      description:
+        "Summarize progress, blockers, and next-week priorities for stakeholders. Include links to the updated timeline and launch checklist.",
       projectId: "proj_1",
       assigneeId: "user_1",
       dueDate: "2026-07-13",
@@ -171,6 +183,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_7",
       title: "Compile Q3 OKR summary",
+      description:
+        "Pull together objective scores, key results, and lessons learned from Q3 planning. Prepare a one-page summary for leadership review.",
       projectId: "proj_3",
       assigneeId: "user_3",
       dueDate: "2026-07-10",
@@ -185,6 +199,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_8",
       title: "Draft wellness survey",
+      description:
+        "Outline survey questions on workload balance, focus time, and team support. Keep it short enough to complete in under five minutes.",
       projectId: "proj_4",
       assigneeId: "user_4",
       dueDate: "2026-07-22",
@@ -199,6 +215,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_9",
       title: "Implement analytics tracking",
+      description:
+        "Add event tracking for signup, onboarding completion, and key dashboard actions. Verify events in the staging analytics dashboard before release.",
       projectId: "proj_2",
       assigneeId: "user_3",
       dueDate: "2026-07-17",
@@ -213,6 +231,8 @@ export const SEED_WORKSPACE: WorkspaceData = {
     {
       id: "task_10",
       title: "Prepare stakeholder demo",
+      description:
+        "Build a concise demo script covering launch milestones, design updates, and risk mitigations. Rehearse with the core team before the meeting.",
       projectId: "proj_1",
       assigneeId: "user_2",
       dueDate: "2026-07-14",

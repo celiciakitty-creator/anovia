@@ -48,6 +48,12 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
         </Badge>
       </div>
 
+      {task.description.trim() ? (
+        <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+          {task.description}
+        </p>
+      ) : null}
+
       <div className="mt-2">
         <TaskStatusChip taskId={task.id} status={task.status} />
       </div>

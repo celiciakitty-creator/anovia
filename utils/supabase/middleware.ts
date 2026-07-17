@@ -1,0 +1,71 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+
+import { isPublicAuthPath } from "@/lib/auth-utils";
+import { getSupabaseEnv } from "./env";
+
+function applySupabaseCookies(source: NextResponse, target: NextResponse) {
+  source.cookies.getAll().forEach(({ name, value }) => {
+    target.cookies.set(name, value);
+  });
+}
+
+/**
+ * Refreshes the Supabase auth session, syncs cookies, and enforces route protection.
+ * Called from the root Next.js 16 proxy on every matched request.
+ */
+export async function updateSession(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+  const { url, key } = getSupabaseEnv();
+  const pathname = request.nextUrl.pathname;
+
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet, headers) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+
+        supabaseResponse = NextResponse.next({ request });
+
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, options);
+        });
+
+        Object.entries(headers).forEach(([headerName, headerValue]) => {
+          supabaseResponse.headers.set(headerName, headerValue);
+        });
+      },
+    },
+  });
+
+  // Do not insert logic between createServerClient and getUser().
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isPublicRoute = isPublicAuthPath(pathname);
+
+  if (!user && !isPublicRoute) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/auth";
+    redirectUrl.searchParams.set("next", pathname);
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    applySupabaseCookies(supabaseResponse, redirectResponse);
+    return redirectResponse;
+  }
+
+  if (user && pathname === "/auth") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/";
+    redirectUrl.search = "";
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    applySupabaseCookies(supabaseResponse, redirectResponse);
+    return redirectResponse;
+  }
+
+  return supabaseResponse;
+}
