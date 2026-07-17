@@ -45,6 +45,11 @@ import type { Label, User } from "@/types";
 import type { WorkspaceData } from "@/types/workspace";
 import { generateId } from "@/lib/id";
 
+const AUTH_SIGNED_OUT_MESSAGE =
+  "You must be signed in to access workspace data.";
+
+const AUTH_WORKSPACE_LOAD_EVENTS = new Set(["INITIAL_SESSION", "SIGNED_IN"]);
+
 type WorkspaceContextValue = {
   users: User[];
   labels: Label[];
@@ -104,13 +109,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const prevProgressRef = useRef<Map<string, number>>(new Map());
   const progressInitializedRef = useRef(false);
-  const workspaceLoadedRef = useRef(false);
+  const localHydratedRef = useRef(false);
+  const loadedUserIdRef = useRef<string | null>(null);
+  const authInitCompleteRef = useRef(false);
+  const lateAuthRetryUsedRef = useRef(false);
+  const workspaceLoadingRef = useRef(false);
 
   useEffect(() => {
-    if (!storageReady || workspaceLoadedRef.current) return;
-    workspaceLoadedRef.current = true;
+    if (!storageReady) return;
 
-    void (async () => {
+    const supabase = createClient();
+
+    if (!localHydratedRef.current) {
+      localHydratedRef.current = true;
       const local = readWorkspaceLocal();
       setData((current) => ({
         ...current,
@@ -118,16 +129,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         events: local.events,
         completionMeta: local.completionMeta,
       }));
+    }
+
+    const loadWorkspaceForUser = async (userId: string) => {
+      if (loadedUserIdRef.current === userId || workspaceLoadingRef.current) {
+        return;
+      }
+
+      workspaceLoadingRef.current = true;
 
       try {
-        const supabase = createClient();
-        const userId = await getAuthenticatedUserId(supabase);
         const [projects, tasks, users] = await Promise.all([
           getProjects(supabase),
           getTasks(supabase),
           getProfiles(supabase),
         ]);
 
+        loadedUserIdRef.current = userId;
         setCurrentUserId(userId);
         setData((current) => ({
           ...current,
@@ -143,9 +161,53 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             : "Unable to load workspace data.";
         setLoadError(message);
       } finally {
+        workspaceLoadingRef.current = false;
         setIsLoaded(true);
       }
-    })();
+    };
+
+    const handleAuthenticatedUser = (userId: string) => {
+      setLoadError(null);
+      void loadWorkspaceForUser(userId);
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const userId = session?.user?.id;
+
+      if (event === "INITIAL_SESSION") {
+        authInitCompleteRef.current = true;
+
+        if (userId) {
+          handleAuthenticatedUser(userId);
+          return;
+        }
+
+        setLoadError(AUTH_SIGNED_OUT_MESSAGE);
+        setIsLoaded(true);
+        return;
+      }
+
+      if (userId && AUTH_WORKSPACE_LOAD_EVENTS.has(event)) {
+        handleAuthenticatedUser(userId);
+        return;
+      }
+
+      if (
+        userId &&
+        authInitCompleteRef.current &&
+        loadedUserIdRef.current === null &&
+        !lateAuthRetryUsedRef.current
+      ) {
+        lateAuthRetryUsedRef.current = true;
+        handleAuthenticatedUser(userId);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [storageReady]);
 
   const updateLocal = useCallback(
