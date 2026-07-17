@@ -21,6 +21,7 @@ export function UserMenu() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const profileButtonRef = useRef<HTMLButtonElement>(null);
+  const profileLinkRef = useRef<HTMLAnchorElement>(null);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -63,6 +64,8 @@ export function UserMenu() {
   useEffect(() => {
     if (!isOpen) return;
 
+    profileLinkRef.current?.focus();
+
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -101,6 +104,13 @@ export function UserMenu() {
       ? "Loading account"
       : "Account menu";
 
+  const avatarProfile: Pick<UserProfile, "displayName" | "email" | "avatarUrl"> =
+    profile ?? {
+      displayName: "",
+      email: "",
+      avatarUrl: "",
+    };
+
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -128,26 +138,42 @@ export function UserMenu() {
 
       {isOpen ? (
         <div
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 rounded-xl border border-border bg-card p-3 shadow-[var(--card-shadow)]"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 overflow-hidden rounded-xl border border-border bg-card shadow-[var(--card-shadow)]"
           role="menu"
           aria-label="Account menu"
         >
-          <div className="mb-3 border-b border-border pb-3">
-            <p className="truncate text-sm font-medium text-foreground">
-              {displayName}
-            </p>
-            {email ? (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {email}
+          <div className="flex items-center gap-3 p-3">
+            {isLoading || !isHydrated ? (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                …
+              </div>
+            ) : (
+              <UserAvatar profile={avatarProfile} size="md" className="h-10 w-10 text-sm" />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">
+                {displayName}
               </p>
-            ) : null}
+              {email ? (
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {email}
+                </p>
+              ) : null}
+            </div>
           </div>
 
-          <div className="space-y-2">
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            className="border-t border-border"
+          />
+
+          <div className="p-1">
             <Link
+              ref={profileLinkRef}
               href="/profile"
               role="menuitem"
-              className="flex w-full items-center rounded-lg px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="block w-full rounded-lg px-3 py-2.5 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
               onClick={() => setIsOpen(false)}
             >
               Profile
@@ -156,7 +182,7 @@ export function UserMenu() {
               type="button"
               variant="secondary"
               size="sm"
-              className="w-full"
+              className="mt-1 w-full"
               onClick={handleSignOut}
               disabled={isSigningOut}
               role="menuitem"
