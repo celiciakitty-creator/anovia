@@ -146,3 +146,19 @@ npm run build    # production build (run before finishing substantive changes)
 - Schema is applied manually via the Supabase SQL Editor
 
 Do not describe authentication, Supabase, or shared database persistence as planned future work — they are implemented today.
+
+---
+
+## Future Supabase migrations (roadmap)
+
+The following features remain browser-only today and are candidates for future Supabase tables with RLS:
+
+| Feature | Current storage |
+|---------|-----------------|
+| Comments | `localStorage` (`lib/comments-storage.ts`) |
+| Labels | `localStorage` (`lib/workspace-storage.ts`) |
+| Calendar events | `localStorage` (`lib/workspace-storage.ts`) |
+| Wellness data | `localStorage` (`lib/wellness-storage.ts`) |
+| Kizuna chat & reminders | `localStorage` (Kizuna providers and storage helpers) |
+
+Theme, break zone, sidebar, onboarding, and completion UI state may remain local-only preferences unless cross-device sync is required.

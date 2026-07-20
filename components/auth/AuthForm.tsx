@@ -19,6 +19,30 @@ type AuthMode = "sign_in" | "sign_up";
 const CALLBACK_ERROR_MESSAGE =
   "We couldn't complete sign-in from your email link. Please try again.";
 
+const SIGN_IN_FIELD_ORDER = ["email", "password"] as const;
+const SIGN_UP_FIELD_ORDER = [
+  "displayName",
+  "githubHandle",
+  "email",
+  "password",
+] as const;
+
+function focusFirstInvalidField(
+  errors: Record<string, string>,
+  fieldOrder: readonly string[]
+) {
+  const firstInvalid = fieldOrder.find((field) => errors[field]);
+  if (!firstInvalid) return;
+
+  requestAnimationFrame(() => {
+    const element = document.getElementById(firstInvalid);
+    if (!element) return;
+
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.focus({ preventScroll: true });
+  });
+}
+
 export function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,7 +92,10 @@ export function AuthForm() {
     if (mode === "sign_in") {
       const validation = validateSignInInput({ email, password });
       setErrors(validation.errors);
-      if (!validation.valid) return;
+      if (!validation.valid) {
+        focusFirstInvalidField(validation.errors, SIGN_IN_FIELD_ORDER);
+        return;
+      }
 
       submitInFlightRef.current = true;
       setIsSubmitting(true);
@@ -103,7 +130,10 @@ export function AuthForm() {
       githubHandle,
     });
     setErrors(validation.errors);
-    if (!validation.valid) return;
+    if (!validation.valid) {
+      focusFirstInvalidField(validation.errors, SIGN_UP_FIELD_ORDER);
+      return;
+    }
 
     submitInFlightRef.current = true;
     setIsSubmitting(true);
@@ -224,22 +254,31 @@ export function AuthForm() {
               </p>
             ) : null}
 
+            <p className="text-xs text-muted-foreground">
+              <span aria-hidden="true" className="text-danger">
+                *
+              </span>{" "}
+              Required fields
+            </p>
+
             {mode === "sign_up" ? (
               <>
                 <Input
-                  label="Display name"
+                  label="Display Name"
                   name="displayName"
                   autoComplete="name"
+                  placeholder="Enter your display name"
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
                   error={errors.displayName}
                   required
                 />
                 <Input
-                  label="GitHub handle"
+                  label="GitHub Handle"
                   name="githubHandle"
                   autoComplete="username"
-                  placeholder="your-username"
+                  placeholder="e.g. celiciakitty-creator"
+                  hint="This is required for cohort identification."
                   value={githubHandle}
                   onChange={(event) => setGithubHandle(event.target.value)}
                   error={errors.githubHandle}
@@ -249,10 +288,11 @@ export function AuthForm() {
             ) : null}
 
             <Input
-              label="Email"
+              label="Email Address"
               name="email"
               type="email"
               autoComplete="email"
+              placeholder="you@example.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               error={errors.email}
@@ -264,6 +304,11 @@ export function AuthForm() {
               name="password"
               type="password"
               autoComplete={mode === "sign_up" ? "new-password" : "current-password"}
+              placeholder={
+                mode === "sign_up"
+                  ? "Create a secure password"
+                  : "Enter your password"
+              }
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               error={errors.password}
