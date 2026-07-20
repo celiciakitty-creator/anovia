@@ -269,17 +269,32 @@ CREATE POLICY "tasks_insert_authenticated"
 COMMENT ON POLICY "tasks_insert_authenticated" ON public.tasks IS
   'Authenticated users can create tasks; created_by must be the current user.';
 
--- Any authenticated user may update tasks (status, assignee, and other fields).
--- Column-level restrictions can be added later if the product requires them.
-CREATE POLICY "tasks_update_authenticated"
+-- Task creator or project owner may update tasks (status, assignee, and other fields).
+CREATE POLICY "tasks_update_creator_or_project_owner"
   ON public.tasks
   FOR UPDATE
   TO authenticated
-  USING (true)
-  WITH CHECK (true);
+  USING (
+    created_by = auth.uid()
+    OR EXISTS (
+      SELECT 1
+      FROM public.projects p
+      WHERE p.id = tasks.project_id
+        AND p.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    created_by = auth.uid()
+    OR EXISTS (
+      SELECT 1
+      FROM public.projects p
+      WHERE p.id = tasks.project_id
+        AND p.owner_id = auth.uid()
+    )
+  );
 
-COMMENT ON POLICY "tasks_update_authenticated" ON public.tasks IS
-  'Authenticated users can update tasks (including status and assignment).';
+COMMENT ON POLICY "tasks_update_creator_or_project_owner" ON public.tasks IS
+  'Task creator or owning project owner may update a task.';
 
 CREATE POLICY "tasks_delete_creator_or_project_owner"
   ON public.tasks

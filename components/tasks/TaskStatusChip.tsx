@@ -32,6 +32,7 @@ export function TaskStatusChip({
   const containerRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [justChanged, setJustChanged] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -54,24 +55,33 @@ export function TaskStatusChip({
     };
   }, [open]);
 
-  const selectStatus = (next: TaskStatus) => {
+  const selectStatus = async (next: TaskStatus) => {
     if (next === status) {
       setOpen(false);
       return;
     }
 
-    void updateTaskStatus(taskId, next);
-    onStatusChange?.(next);
-    setOpen(false);
+    setUpdateError(null);
 
-    if (!prefersReducedMotion) {
-      setJustChanged(true);
-      window.setTimeout(() => setJustChanged(false), 450);
+    try {
+      await updateTaskStatus(taskId, next);
+      onStatusChange?.(next);
+      setOpen(false);
+
+      if (!prefersReducedMotion) {
+        setJustChanged(true);
+        window.setTimeout(() => setJustChanged(false), 450);
+      }
+    } catch (error) {
+      setUpdateError(
+        error instanceof Error ? error.message : "Unable to update task status."
+      );
+      setOpen(false);
     }
   };
 
   return (
-    <div ref={containerRef} className={cn("relative inline-flex", className)}>
+    <div ref={containerRef} className={cn("relative inline-flex flex-col items-start gap-1", className)}>
       <button
         type="button"
         aria-haspopup="listbox"
@@ -142,6 +152,12 @@ export function TaskStatusChip({
             );
           })}
         </ul>
+      ) : null}
+
+      {updateError ? (
+        <p className="max-w-[12rem] text-[10px] leading-snug text-danger" role="alert">
+          {updateError}
+        </p>
       ) : null}
     </div>
   );

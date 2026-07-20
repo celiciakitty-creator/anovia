@@ -142,6 +142,37 @@ function taskInputToUpdate(input: TaskInput, existing: Task) {
   };
 }
 
+type SupabaseMutationError = {
+  message: string;
+  code?: string;
+};
+
+function throwWorkspaceMutationError(
+  error: SupabaseMutationError,
+  action: string
+): never {
+  const normalized = error.message.toLowerCase();
+  const isPermissionDenied =
+    error.code === "42501" ||
+    error.code === "PGRST116" ||
+    error.code === "PGRST301" ||
+    normalized.includes("row-level security") ||
+    normalized.includes("permission denied") ||
+    normalized.includes("0 rows") ||
+    normalized.includes("cannot coerce the result to a single json object");
+
+  if (isPermissionDenied) {
+    throw new Error(
+      `You don't have permission to ${action}. Only the task creator or project owner can make this change.`
+    );
+  }
+
+  throw new Error(error.message);
+}
+
+const TASK_UPDATE_DENIED_MESSAGE =
+  "You don't have permission to update this task. Only the task creator or project owner can make this change.";
+
 export async function getAuthenticatedUserId(
   supabase: SupabaseClient
 ): Promise<string> {
@@ -276,7 +307,11 @@ export async function updateTask(
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    throwWorkspaceMutationError(error, "update this task");
+  }
+
+  if (!data) {
+    throw new Error(TASK_UPDATE_DENIED_MESSAGE);
   }
 
   return mapTaskRow(data as DbTaskRow);
@@ -302,7 +337,11 @@ export async function updateTaskStatus(
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    throwWorkspaceMutationError(error, "update this task status");
+  }
+
+  if (!data) {
+    throw new Error(TASK_UPDATE_DENIED_MESSAGE);
   }
 
   return mapTaskRow(data as DbTaskRow);

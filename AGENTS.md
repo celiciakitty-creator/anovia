@@ -71,7 +71,7 @@ RLS is enabled on `profiles`, `projects`, and `tasks`.
 |-------|----------------|
 | **profiles** | Authenticated users can `SELECT` all profiles. Users can `UPDATE` and `INSERT` only their own row (`id = auth.uid()`). |
 | **projects** | Authenticated `SELECT`. `INSERT` requires `owner_id = auth.uid()`. `UPDATE` / `DELETE` restricted to owner. |
-| **tasks** | Authenticated `SELECT` and `UPDATE`. `INSERT` requires `created_by = auth.uid()`. `DELETE` allowed for task creator or project owner. |
+| **tasks** | Authenticated `SELECT`. `INSERT` requires `created_by = auth.uid()`. `UPDATE` / `DELETE` allowed for task creator or project owner. |
 
 When adding tables or policies, update `supabase/schema.sql` and document any manual SQL steps for the user.
 
