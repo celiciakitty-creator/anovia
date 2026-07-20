@@ -1,3 +1,5 @@
+import type { AuthError } from "@supabase/supabase-js";
+
 import type { ValidationResult } from "@/lib/validation";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -63,28 +65,71 @@ export function normalizeGithubHandle(handle: string): string {
   return handle.trim().replace(/^@/, "");
 }
 
-export function mapAuthErrorMessage(message: string): string {
-  const normalized = message.toLowerCase();
+/** Logs Supabase auth error details during local development. */
+export function logAuthError(context: "sign_in" | "sign_up", error: AuthError): void {
+  if (process.env.NODE_ENV !== "development") return;
 
-  if (normalized.includes("invalid login credentials")) {
+  console.error(`[auth:${context}]`, {
+    status: error.status,
+    code: error.code,
+    message: error.message,
+  });
+}
+
+export function mapAuthErrorMessage(
+  error: AuthError,
+  context: "sign_in" | "sign_up" = "sign_in"
+): string {
+  const normalized = error.message.toLowerCase();
+
+  if (error.code === "over_request_rate_limit") {
+    return "Authentication is temporarily limited because of high activity. Please wait a few minutes and try again.";
+  }
+
+  if (error.code === "over_email_send_rate_limit") {
+    return "Too many confirmation emails were sent recently. Please wait a few minutes before requesting another.";
+  }
+
+  if (error.code === "over_sms_send_rate_limit") {
+    return "Too many SMS messages were sent recently. Please wait a few minutes before trying again.";
+  }
+
+  if (
+    error.code === "invalid_credentials" ||
+    normalized.includes("invalid login credentials")
+  ) {
+    if (context === "sign_in") {
+      return "Those credentials could not be verified. If you are new to Anovia, create an account first.";
+    }
+
     return "Email or password is incorrect. Please try again.";
   }
 
-  if (normalized.includes("user already registered")) {
+  if (
+    error.code === "user_already_exists" ||
+    error.code === "email_exists" ||
+    normalized.includes("user already registered")
+  ) {
     return "An account with this email already exists. Try signing in instead.";
   }
 
-  if (normalized.includes("password should be at least")) {
+  if (
+    error.code === "weak_password" ||
+    normalized.includes("password should be at least")
+  ) {
     return "Password must be at least 8 characters.";
   }
 
-  if (normalized.includes("email not confirmed")) {
-    return "Please confirm your email before signing in.";
+  if (
+    error.code === "email_not_confirmed" ||
+    normalized.includes("email not confirmed")
+  ) {
+    return "Please check your inbox and confirm your email address before signing in. If you do not see the message, check your spam folder.";
   }
 
-  if (normalized.includes("rate limit")) {
-    return "Too many attempts. Please wait a moment and try again.";
+  if (error.code === "signup_disabled") {
+    return "New account registration is currently disabled.";
   }
 
-  return message;
+  return error.message || "Authentication failed. Please try again.";
 }

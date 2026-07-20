@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Card, Input } from "@/components/ui";
 import { APP_NAME, AI_ASSISTANT_NAME } from "@/lib/constants";
 import {
+  logAuthError,
   mapAuthErrorMessage,
   normalizeGithubHandle,
   validateSignInInput,
@@ -30,6 +31,9 @@ export function AuthForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
+  const signInTabRef = useRef<HTMLButtonElement>(null);
+  const signUpTabRef = useRef<HTMLButtonElement>(null);
 
   const callbackError =
     searchParams.get("error") === "auth_callback_error"
@@ -37,15 +41,25 @@ export function AuthForm() {
       : null;
   const visibleError = formError ?? callbackError;
 
-  const switchMode = (nextMode: AuthMode) => {
+  const switchMode = (nextMode: AuthMode, options?: { focusTab?: boolean }) => {
     setMode(nextMode);
     setErrors({});
     setFormError(null);
     setSuccessMessage(null);
+
+    if (options?.focusTab) {
+      requestAnimationFrame(() => {
+        const tab =
+          nextMode === "sign_in" ? signInTabRef.current : signUpTabRef.current;
+        tab?.focus();
+      });
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (submitInFlightRef.current || isSubmitting) return;
+
     setFormError(null);
     setSuccessMessage(null);
 
@@ -56,21 +70,29 @@ export function AuthForm() {
       setErrors(validation.errors);
       if (!validation.valid) return;
 
+      submitInFlightRef.current = true;
       setIsSubmitting(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      setIsSubmitting(false);
 
-      if (error) {
-        setFormError(mapAuthErrorMessage(error.message));
-        return;
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) {
+          logAuthError("sign_in", error);
+          setFormError(mapAuthErrorMessage(error, "sign_in"));
+          return;
+        }
+
+        const next = searchParams.get("next");
+        router.push(next?.startsWith("/") ? next : "/");
+        router.refresh();
+      } finally {
+        submitInFlightRef.current = false;
+        setIsSubmitting(false);
       }
 
-      const next = searchParams.get("next");
-      router.push(next?.startsWith("/") ? next : "/");
-      router.refresh();
       return;
     }
 
@@ -83,35 +105,42 @@ export function AuthForm() {
     setErrors(validation.errors);
     if (!validation.valid) return;
 
+    submitInFlightRef.current = true;
     setIsSubmitting(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          display_name: displayName.trim(),
-          github_handle: normalizeGithubHandle(githubHandle),
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            display_name: displayName.trim(),
+            github_handle: normalizeGithubHandle(githubHandle),
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    setIsSubmitting(false);
+      });
 
-    if (error) {
-      setFormError(mapAuthErrorMessage(error.message));
-      return;
+      if (error) {
+        logAuthError("sign_up", error);
+        setFormError(mapAuthErrorMessage(error, "sign_up"));
+        return;
+      }
+
+      if (data.session) {
+        router.push("/");
+        router.refresh();
+        return;
+      }
+
+      setSuccessMessage(
+        "Account created! Check your email to confirm your address, then sign in."
+      );
+      switchMode("sign_in");
+    } finally {
+      submitInFlightRef.current = false;
+      setIsSubmitting(false);
     }
-
-    if (data.session) {
-      router.push("/");
-      router.refresh();
-      return;
-    }
-
-    setSuccessMessage(
-      "Account created! Check your email to confirm your address, then sign in."
-    );
-    switchMode("sign_in");
   };
 
   return (
@@ -125,7 +154,9 @@ export function AuthForm() {
             Welcome to {APP_NAME}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in to continue with {AI_ASSISTANT_NAME} and your workspace.
+            {mode === "sign_up"
+              ? `Create your account to get started with ${AI_ASSISTANT_NAME}.`
+              : `Sign in to continue with ${AI_ASSISTANT_NAME} and your workspace.`}
           </p>
         </div>
 
@@ -136,11 +167,33 @@ export function AuthForm() {
             aria-label="Authentication mode"
           >
             <button
+              ref={signUpTabRef}
+              id="auth-tab-sign-up"
+              type="button"
+              role="tab"
+              aria-selected={mode === "sign_up"}
+              aria-controls="auth-panel"
+              tabIndex={mode === "sign_up" ? 0 : -1}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                mode === "sign_up"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-primary ring-1 ring-primary/25 hover:bg-primary/10 hover:text-primary"
+              )}
+              onClick={() => switchMode("sign_up")}
+            >
+              Sign up
+            </button>
+            <button
+              ref={signInTabRef}
+              id="auth-tab-sign-in"
               type="button"
               role="tab"
               aria-selected={mode === "sign_in"}
+              aria-controls="auth-panel"
+              tabIndex={mode === "sign_in" ? 0 : -1}
               className={cn(
-                "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                "rounded-md px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                 mode === "sign_in"
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -149,23 +202,16 @@ export function AuthForm() {
             >
               Sign in
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "sign_up"}
-              className={cn(
-                "rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-                mode === "sign_up"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => switchMode("sign_up")}
-            >
-              Sign up
-            </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <form
+            id="auth-panel"
+            role="tabpanel"
+            aria-labelledby={mode === "sign_up" ? "auth-tab-sign-up" : "auth-tab-sign-in"}
+            onSubmit={handleSubmit}
+            className="space-y-4"
+            noValidate
+          >
             {visibleError ? (
               <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
                 {visibleError}
@@ -239,6 +285,34 @@ export function AuthForm() {
                   : "Create account"}
             </Button>
           </form>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            {mode === "sign_in" ? (
+              <>
+                New to {APP_NAME}?{" "}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card rounded-sm"
+                  onClick={() => switchMode("sign_up", { focusTab: true })}
+                >
+                  Create an account
+                </button>
+                .
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline-offset-4 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card rounded-sm"
+                  onClick={() => switchMode("sign_in", { focusTab: true })}
+                >
+                  Sign in
+                </button>
+                .
+              </>
+            )}
+          </p>
         </Card>
       </div>
     </div>
