@@ -6,7 +6,6 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { AI_ASSISTANT_NAME } from "@/lib/constants";
 import {
-  GARDEN_FALLBACK,
   getGrowthGardenStats,
   type GrowthGardenStats,
 } from "@/lib/growth-garden-utils";
@@ -109,30 +108,31 @@ export function GrowthGardenCard({ stats: statsOverride, className }: GrowthGard
   const prefersReducedMotion = usePrefersReducedMotion();
   const stats =
     statsOverride ??
-    (isHydrated
-      ? getGrowthGardenStats(tasks)
-      : {
-          stage: GARDEN_FALLBACK.stage,
-          progress: GARDEN_FALLBACK.progress,
-          streakDays: GARDEN_FALLBACK.streakDays,
-          todayLeaves: GARDEN_FALLBACK.todayLeaves,
-          nextUnlock: GARDEN_FALLBACK.nextUnlock,
-          usingFallback: true,
-        });
+    (isHydrated ? getGrowthGardenStats(tasks) : getGrowthGardenStats([]));
 
-  const todayLabel =
-    stats.todayLeaves === 1
+  const isEmptyGarden = stats.usingFallback;
+
+  const todayLabel = isEmptyGarden
+    ? "No leaves yet"
+    : stats.todayLeaves === 1
       ? "+1 leaf"
       : `+${stats.todayLeaves} leaves`;
 
-  const streakLabel =
-    stats.streakDays === 1 ? "1 day" : `${stats.streakDays} days`;
+  const streakLabel = isEmptyGarden
+    ? "0 days"
+    : stats.streakDays === 1
+      ? "1 day"
+      : `${stats.streakDays} days`;
 
   return (
     <Card className={cn("h-full", className)}>
       <CardHeader
         title="Growth Garden"
-        description="Celebrate steady progress"
+        description={
+          isEmptyGarden
+            ? "Complete tasks to help your garden grow"
+            : "Celebrate steady progress"
+        }
       />
 
       <div className="flex items-start gap-4">
@@ -157,13 +157,27 @@ export function GrowthGardenCard({ stats: statsOverride, className }: GrowthGard
               style={{ width: `${stats.progress}%` }}
             />
           </div>
+
+          {isEmptyGarden ? (
+            <div className="mt-3 space-y-1">
+              <p className="text-sm text-foreground">
+                Your garden will grow as you complete tasks.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Complete your first task to begin your streak.
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatItem label="Current stage" value={stats.stage} />
         <StatItem label="Progress" value={`${stats.progress}%`} />
-        <StatItem label="Streak" value={streakLabel} />
+        <StatItem
+          label="Streak"
+          value={isEmptyGarden ? "No streak yet" : streakLabel}
+        />
         <StatItem label="Today's growth" value={todayLabel} />
       </div>
 

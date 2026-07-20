@@ -124,12 +124,14 @@ export function getGrowthGardenStats(
   const safeTasks = Array.isArray(tasks) ? tasks : [];
 
   if (safeTasks.length === 0) {
+    const { nextUnlock } = getStageFromProgress(0);
+
     return {
-      stage: GARDEN_FALLBACK.stage,
-      progress: GARDEN_FALLBACK.progress,
-      streakDays: GARDEN_FALLBACK.streakDays,
-      todayLeaves: GARDEN_FALLBACK.todayLeaves,
-      nextUnlock: GARDEN_FALLBACK.nextUnlock,
+      stage: "Seed",
+      progress: 0,
+      streakDays: 0,
+      todayLeaves: 0,
+      nextUnlock,
       usingFallback: true,
     };
   }
