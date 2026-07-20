@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ScrollContainerProvider } from "./ScrollContainerContext";
 import { Sidebar } from "./Sidebar";
 import { TopNavbar } from "./TopNavbar";
+import { WorkspaceLoadAlert } from "@/components/workspace";
 
 type MainLayoutProps = {
   children: React.ReactNode;
@@ -45,6 +46,7 @@ export function MainLayout({ children, subtitle }: MainLayoutProps) {
             ref={setMainRef}
             className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6"
           >
+            <WorkspaceLoadAlert />
             {children}
           </main>
         </div>

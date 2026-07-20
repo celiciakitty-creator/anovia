@@ -65,20 +65,29 @@ function EventFormContent({
         }
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (eventSubmit: React.FormEvent) => {
     eventSubmit.preventDefault();
+    if (isSubmitting) return;
+
     const result = validateCalendarEventInput(form);
     setErrors(result.errors);
     if (!result.valid) return;
 
-    if (event) {
-      updateEvent(event.id, form);
-    } else {
-      createEvent(form);
+    setIsSubmitting(true);
+
+    try {
+      if (event) {
+        updateEvent(event.id, form);
+      } else {
+        createEvent(form);
+      }
+      onSaved?.();
+      onClose();
+    } finally {
+      setIsSubmitting(false);
     }
-    onSaved?.();
-    onClose();
   };
 
   const projectOptions = [
@@ -153,10 +162,16 @@ function EventFormContent({
         onChange={(e) => setForm({ ...form, description: e.target.value })}
       />
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="secondary" onClick={onClose}>
+        <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button type="submit">{isEditing ? "Save changes" : "Add event"}</Button>
+        <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+          {isSubmitting
+            ? "Saving…"
+            : isEditing
+              ? "Save changes"
+              : "Add event"}
+        </Button>
       </div>
     </form>
   );

@@ -27,7 +27,7 @@ Do not store profiles, projects, or tasks in `localStorage`.
 ## Supabase authentication
 
 - Email/password sign-up and sign-in at `/app/auth`
-- OAuth callback at `/app/auth/callback/route.ts` exchanges the auth code for a session
+- OAuth callback at `/app/auth/callback/route.ts` exchanges email confirmation codes for a session
 - `UserMenu` and `ProfilePageContent` load the signed-in user via `onAuthStateChange` and `lib/profile-db.ts`
 - `WorkspaceProvider` **must wait for the browser auth session** (`INITIAL_SESSION` / `SIGNED_IN`) before loading workspace data — do not use one-shot `getUser()` without an auth-state subscription
 - Use the **shared browser client singleton** in `utils/supabase/client.ts`; avoid creating ad-hoc Supabase clients

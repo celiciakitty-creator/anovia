@@ -18,6 +18,8 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const titleId = `onboarding-title-${step}`;
+  const descriptionId = `onboarding-description-${step}`;
 
   const goNext = () => {
     setDirection("forward");
@@ -38,8 +40,8 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
       className="onboarding-overlay"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="onboarding-title"
-      aria-describedby="onboarding-description"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
     >
       <div className="onboarding-shell">
         <button
@@ -67,14 +69,14 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
                 <span className="onboarding-icon" aria-hidden>
                   🌸
                 </span>
-                <h1 id="onboarding-title" className="onboarding-title mt-5 font-semibold text-foreground">
+                <h1 id={titleId} className="onboarding-title mt-5 font-semibold text-foreground">
                   Welcome to {APP_NAME}
                 </h1>
                 <p className="mt-3 text-lg font-medium text-foreground/90">
                   &ldquo;A New Way Forward&rdquo;
                 </p>
                 <p
-                  id="onboarding-description"
+                  id={descriptionId}
                   className="onboarding-quote mt-5 max-w-md text-muted-foreground"
                 >
                   Project management shouldn&apos;t just organize work.
@@ -89,11 +91,11 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
                 <span className="onboarding-icon" aria-hidden>
                   🤖
                 </span>
-                <h2 id="onboarding-title" className="onboarding-title mt-4 font-semibold text-foreground">
+                <h2 id={titleId} className="onboarding-title mt-4 font-semibold text-foreground">
                   Meet {AI_ASSISTANT_NAME}
                 </h2>
-                <p id="onboarding-description" className="mt-2 text-sm text-muted-foreground">
-                  Your AI productivity companion.
+                <p id={descriptionId} className="mt-2 text-sm text-muted-foreground">
+                  Your AI productivity companion for tasks, wellness, and focus.
                 </p>
                 <p className="mt-5 text-sm font-medium text-foreground">
                   {AI_ASSISTANT_NAME} helps you:
@@ -112,14 +114,12 @@ export function OnboardingFlow({ onComplete, onSkip }: OnboardingFlowProps) {
                 <span className="onboarding-icon" aria-hidden>
                   🌱
                 </span>
-                <h2 id="onboarding-title" className="onboarding-title mt-4 font-semibold text-foreground">
+                <h2 id={titleId} className="onboarding-title mt-4 font-semibold text-foreground">
                   Grow with every achievement.
                 </h2>
-                <div id="onboarding-description" className="mt-4 space-y-2 text-sm text-muted-foreground">
-                  <p>Complete tasks.</p>
-                  <p>Build streaks.</p>
-                  <p>Take healthy breaks.</p>
-                  <p>Watch your workspace flourish.</p>
+                <div id={descriptionId} className="mt-4 space-y-2 text-sm text-muted-foreground">
+                  <p>Complete tasks, build streaks, and take healthy breaks.</p>
+                  <p>Your Growth Garden below is a sample preview of what unlocks as you work.</p>
                 </div>
                 <div className="mt-5">
                   <GrowthGardenPreview />

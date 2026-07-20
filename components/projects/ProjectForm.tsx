@@ -130,6 +130,10 @@ function ProjectFormContent({ project, onClose, onSaved }: ProjectFormContentPro
           <legend className="text-xs font-medium text-foreground">
             Team members
           </legend>
+          <p className="text-xs text-muted-foreground">
+            Selections here are for planning in this demo. Only the project owner
+            is saved to Supabase.
+          </p>
           <div className="flex flex-wrap gap-2">
             {users.map((user) => {
               const selected = form.memberIds.includes(user.id);

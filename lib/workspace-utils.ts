@@ -25,6 +25,7 @@ export function getTasksDueThisWeek(tasks: Task[], reference = new Date()): Task
   return tasks.filter((task) => {
     if (task.status === "completed") return false;
     const due = parseDate(task.dueDate);
+    if (!due) return false;
     return due >= start && due <= end;
   });
 }
@@ -34,6 +35,7 @@ export function getWeeklyCompletionStats(tasks: Task[], reference = new Date()) 
   const end = endOfWeek(reference);
   const weekTasks = tasks.filter((task) => {
     const due = parseDate(task.dueDate);
+    if (!due) return false;
     return due >= start && due <= end;
   });
   const completed = weekTasks.filter((t) => t.status === "completed").length;
@@ -47,6 +49,7 @@ export function getWeeklyCompletionStats(tasks: Task[], reference = new Date()) 
       const timestamp = getTaskCompletionTimestamp(task);
       if (!timestamp) return false;
       const completedDay = parseDate(timestamp.slice(0, 10));
+      if (!completedDay) return false;
       return isSameDay(completedDay, dayDate);
     }).length;
     return { day, value };
@@ -69,10 +72,13 @@ export function getUrgentTasks(tasks: Task[], limit = 3): Task[] {
       const priorityDiff =
         priorityWeight[a.priority] - priorityWeight[b.priority];
       if (priorityDiff !== 0) return priorityDiff;
-      return parseDate(a.dueDate).getTime() - parseDate(b.dueDate).getTime();
+      const aDue = parseDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bDue = parseDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aDue - bDue;
     })
     .filter((task) => {
       const due = parseDate(task.dueDate);
+      if (!due) return task.priority === "high";
       const daysUntil = Math.ceil(
         (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -95,6 +101,7 @@ export function getProjectById(
 
 export function formatDueDate(dateStr: string): string {
   const date = parseDate(dateStr);
+  if (!date) return "No due date";
   const today = startOfDay(new Date());
   const tomorrow = addDays(today, 1);
   if (isSameDay(date, today)) return "Today";
@@ -149,9 +156,14 @@ export const LABEL_COLOR_STYLES: Record<string, string> = {
   secondary: "bg-muted text-secondary",
 };
 
-function parseDate(dateStr: string): Date {
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr?.trim()) return null;
+
   const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  if (!year || !month || !day) return null;
+
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function startOfDay(date: Date): Date {

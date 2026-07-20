@@ -189,6 +189,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      if (event === "SIGNED_OUT") {
+        loadedUserIdRef.current = null;
+        workspaceLoadingRef.current = false;
+        lateAuthRetryUsedRef.current = false;
+        setCurrentUserId(null);
+        setData(EMPTY_WORKSPACE);
+        setLoadError(AUTH_SIGNED_OUT_MESSAGE);
+        setIsLoaded(true);
+        return;
+      }
+
       if (userId && AUTH_WORKSPACE_LOAD_EVENTS.has(event)) {
         handleAuthenticatedUser(userId);
         return;

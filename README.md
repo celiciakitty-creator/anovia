@@ -12,7 +12,7 @@ https://anovia.vercel.app
 - **Projects** — create, edit, and track projects with team context
 - **Tasks** — Kanban board with filtering and status updates
 - **Calendar** — events linked to projects
-- **Team** — directory of workspace members from Supabase profiles
+- **Team** — coming soon (placeholder page; member directory not yet available)
 - **Profile** — edit display name, GitHub handle, and avatar URL
 - **Wellness Hub** — wellness tracking and reminders
 - **Break Zone** — guided break activities
@@ -69,6 +69,8 @@ supabase/schema.sql
 ```
 
 This creates `profiles`, `projects`, and `tasks` tables, RLS policies, and a sign-up trigger that bootstraps user profiles.
+
+For cohort review windows, see [`docs/cohort-auth-review.md`](docs/cohort-auth-review.md) for temporary Supabase Auth dashboard settings.
 
 ### 4. Start the dev server
 

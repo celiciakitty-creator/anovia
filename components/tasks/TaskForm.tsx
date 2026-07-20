@@ -224,6 +224,10 @@ function TaskFormContent({
         </div>
         <fieldset className="space-y-2">
           <legend className="text-xs font-medium text-foreground">Labels</legend>
+          <p className="text-xs text-muted-foreground">
+            Labels are stored in this browser only and are not synced to Supabase
+            yet.
+          </p>
           <div className="flex flex-wrap gap-2">
             {labels.map((label) => {
               const selected = form.labelIds.includes(label.id);
