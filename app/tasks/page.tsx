@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { RevealOnScroll } from "@/components/motion";
 import { KanbanBoard, TaskFiltersBar, TaskForm } from "@/components/tasks";
@@ -17,6 +17,8 @@ function TasksPageContent() {
   const { tasks, deleteTask, isLoaded, loadError } = useWorkspace();
   const searchParams = useSearchParams();
   const shouldOpenCreate = searchParams.get("create") === "1";
+  const focusTaskId = searchParams.get("focus");
+  const focusedTaskRef = useRef<string | null>(null);
   const [formOpen, setFormOpen] = useState(shouldOpenCreate);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [defaultStatus, setDefaultStatus] = useState<TaskStatus>("todo");
@@ -38,6 +40,21 @@ function TasksPageContent() {
     setEditingTask(task);
     setFormOpen(true);
   };
+
+  useEffect(() => {
+    if (!isLoaded || !focusTaskId || focusedTaskRef.current === focusTaskId) {
+      return;
+    }
+
+    const task = tasks.find((item) => item.id === focusTaskId);
+    if (task) {
+      focusedTaskRef.current = focusTaskId;
+      queueMicrotask(() => {
+        setEditingTask(task);
+        setFormOpen(true);
+      });
+    }
+  }, [isLoaded, focusTaskId, tasks]);
 
   if (!isLoaded) {
     return (

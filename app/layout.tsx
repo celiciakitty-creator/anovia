@@ -5,6 +5,7 @@ import { CelebrationProvider } from "@/components/celebration";
 import { ThemeProvider } from "@/components/theme";
 import { BreakZoneProvider } from "@/components/break-zone";
 import { KizunaReminderProvider, KizunaChatProvider } from "@/components/kizuna";
+import { NotificationProvider } from "@/components/notifications";
 import { WellnessProvider } from "@/components/wellness";
 import { WorkspaceProvider } from "@/components/workspace";
 import { CommentsProvider } from "@/components/comments";
@@ -47,13 +48,15 @@ export default function RootLayout({
             <CelebrationProvider>
               <WorkspaceProvider>
                 <CommentsProvider>
-                  <WellnessProvider>
-                    <KizunaReminderProvider>
-                      <KizunaChatProvider>
-                        <BreakZoneProvider>{children}</BreakZoneProvider>
-                      </KizunaChatProvider>
-                    </KizunaReminderProvider>
-                  </WellnessProvider>
+                  <NotificationProvider>
+                    <WellnessProvider>
+                      <KizunaReminderProvider>
+                        <KizunaChatProvider>
+                          <BreakZoneProvider>{children}</BreakZoneProvider>
+                        </KizunaChatProvider>
+                      </KizunaReminderProvider>
+                    </WellnessProvider>
+                  </NotificationProvider>
                 </CommentsProvider>
               </WorkspaceProvider>
             </CelebrationProvider>

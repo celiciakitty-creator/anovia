@@ -2,7 +2,8 @@
 
 import { UserMenu } from "@/components/auth";
 import { Button } from "@/components/ui";
-import { NotificationBell, AskKizunaButton } from "@/components/kizuna";
+import { NotificationsBell } from "@/components/notifications";
+import { AskKizunaButton } from "@/components/kizuna";
 import { ThemeToggle } from "@/components/theme";
 import { NewMenu } from "@/components/layout/NewMenu";
 import { useScrollY } from "@/hooks/useScrollY";
@@ -97,7 +98,7 @@ export function TopNavbar({
         <AskKizunaButton className="shrink-0 sm:hidden" showLabel={false} />
         <AskKizunaButton className="hidden shrink-0 sm:inline-flex" />
 
-        <NotificationBell />
+        <NotificationsBell />
 
         <NewMenu />
 
