@@ -8,13 +8,14 @@ export type KizunaChatMessage = {
 };
 
 export type KizunaSuggestedQuestionId =
-  | "focus_today"
-  | "project_attention"
+  | "due_today"
   | "overdue_tasks"
-  | "completed_week"
-  | "on_track"
-  | "take_break"
-  | "summarize";
+  | "work_next"
+  | "my_tasks"
+  | "projects_falling_behind"
+  | "summarize_week"
+  | "most_assigned"
+  | "completed_count";
 
 export type KizunaSuggestedQuestion = {
   id: KizunaSuggestedQuestionId;
@@ -22,16 +23,17 @@ export type KizunaSuggestedQuestion = {
 };
 
 export const KIZUNA_SUGGESTED_QUESTIONS: KizunaSuggestedQuestion[] = [
-  { id: "focus_today", text: "What should I focus on today?" },
-  { id: "project_attention", text: "Which project needs attention?" },
-  { id: "overdue_tasks", text: "Show my overdue tasks." },
-  { id: "completed_week", text: "What have I completed this week?" },
-  { id: "on_track", text: "Am I on track?" },
-  { id: "take_break", text: "Should I take a break?" },
-  { id: "summarize", text: "Summarize my progress." },
+  { id: "due_today", text: "What tasks are due today?" },
+  { id: "overdue_tasks", text: "What tasks are overdue?" },
+  { id: "work_next", text: "What should I work on next?" },
+  { id: "my_tasks", text: "Show my tasks." },
+  { id: "projects_falling_behind", text: "Which projects are falling behind?" },
+  { id: "summarize_week", text: "Summarize this week." },
+  { id: "most_assigned", text: "Who has the most assigned tasks?" },
+  { id: "completed_count", text: "How many tasks are completed?" },
 ];
 
 export const KIZUNA_CHAT_MAX_MESSAGES = 50;
 
 export const KIZUNA_CHAT_FALLBACK =
-  "I can currently help with your tasks, deadlines, progress, projects, and wellness habits. Try one of the suggested questions, or ask about what's due, overdue, or completed.";
+  "I can help with due dates, overdue tasks, your assignments, project progress, weekly summaries, and completion counts. Try a suggested question below, or ask in your own words.";

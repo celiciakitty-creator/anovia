@@ -1,18 +1,26 @@
-import { getCompletionStats, getTaskCompletionTimestamp } from "@/lib/completion-utils";
-import { getGrowthGardenStats } from "@/lib/growth-garden-utils";
+import {
+  buildWeeklySummary,
+  getCompletedTasks,
+  getFallingBehindProjects,
+  getMyOpenTasks,
+  getOpenTasks,
+  getOverdueTasks,
+  getTasksDueToday,
+  getTopAssignees,
+  rankNextTasks,
+} from "@/lib/kizuna-queries";
 import {
   formatDueDate,
   getProjectById,
-  getUrgentTasks,
-  getWeeklyCompletionStats,
+  getUserById,
 } from "@/lib/workspace-utils";
-import { getFocusSessionsToday } from "@/lib/wellness-utils";
-import type { KizunaReminder } from "@/types/kizuna-reminder";
+import { TASK_STATUS_LABELS } from "@/types/task";
 import {
   KIZUNA_CHAT_FALLBACK,
   KIZUNA_SUGGESTED_QUESTIONS,
   type KizunaSuggestedQuestionId,
 } from "@/types/kizuna-chat";
+import type { KizunaReminder } from "@/types/kizuna-reminder";
 import type { WellnessData } from "@/types/wellness";
 import type { Task } from "@/types/task";
 import type { WorkspaceData } from "@/types/workspace";
@@ -23,79 +31,17 @@ export type KizunaChatEngineContext = {
   projects: EnrichedProject[];
   wellness: WellnessData;
   reminders: KizunaReminder[];
+  currentUserId: string | null;
   reference?: Date;
 };
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function parseDate(dateStr: string): Date {
-  return startOfDay(new Date(dateStr));
-}
-
-function getOpenTasks(tasks: Task[]): Task[] {
-  return tasks.filter((task) => task.status !== "completed");
-}
-
-function getOverdueTasks(tasks: Task[], reference: Date): Task[] {
-  const today = startOfDay(reference);
-  return getOpenTasks(tasks)
-    .filter((task) => parseDate(task.dueDate) < today)
-    .sort(
-      (a, b) => parseDate(a.dueDate).getTime() - parseDate(b.dueDate).getTime()
-    );
-}
-
-function getUpcomingTasks(tasks: Task[], reference: Date, withinDays = 2): Task[] {
-  const today = startOfDay(reference);
-  const limit = new Date(today);
-  limit.setDate(limit.getDate() + withinDays);
-
-  return getOpenTasks(tasks)
-    .filter((task) => {
-      const due = parseDate(task.dueDate);
-      return due >= today && due <= limit;
-    })
-    .sort(
-      (a, b) => parseDate(a.dueDate).getTime() - parseDate(b.dueDate).getTime()
-    );
-}
-
-function endOfWeek(date: Date): Date {
-  const start = startOfWeek(date);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-  return end;
-}
-
-function startOfWeek(date: Date): Date {
-  const d = startOfDay(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  const result = new Date(d);
-  result.setDate(result.getDate() + diff);
-  return result;
-}
-
-function getTasksCompletedThisWeek(tasks: Task[], reference: Date): Task[] {
-  const weekStart = startOfWeek(reference);
-  const weekEnd = endOfWeek(reference);
-
-  return tasks.filter((task) => {
-    if (task.status !== "completed") return false;
-    const timestamp = getTaskCompletionTimestamp(task);
-    if (!timestamp) return false;
-    const completedDate = new Date(timestamp);
-    return completedDate >= weekStart && completedDate <= weekEnd;
-  });
-}
+const PREVIEW_LIMIT = 5;
 
 function normalizeQuestion(input: string): string {
   return input.trim().toLowerCase().replace(/[?!.]+$/g, "");
 }
 
-function matchQuestionId(input: string): KizunaSuggestedQuestionId | null {
+export function matchQuestionId(input: string): KizunaSuggestedQuestionId | null {
   const normalized = normalizeQuestion(input);
 
   for (const question of KIZUNA_SUGGESTED_QUESTIONS) {
@@ -104,29 +50,39 @@ function matchQuestionId(input: string): KizunaSuggestedQuestionId | null {
     }
   }
 
-  if (
-    /focus|priorit|today|what should i work/.test(normalized) &&
-    !/break/.test(normalized)
-  ) {
-    return "focus_today";
-  }
-  if (/project.*(attention|behind|lag|need)/.test(normalized) || /which project/.test(normalized)) {
-    return "project_attention";
+  if (/due today|due.*today|today'?s tasks/.test(normalized)) {
+    return "due_today";
   }
   if (/overdue|past due|late task/.test(normalized)) {
     return "overdue_tasks";
   }
-  if (/completed.*week|finished.*week|done this week/.test(normalized)) {
-    return "completed_week";
+  if (
+    /what should i work on next|work on next|next task|what to do next/.test(
+      normalized
+    )
+  ) {
+    return "work_next";
   }
-  if (/on track|keeping up|behind schedule/.test(normalized)) {
-    return "on_track";
+  if (/show my tasks|my tasks|tasks assigned to me/.test(normalized)) {
+    return "my_tasks";
   }
-  if (/break|rest|pause|tired/.test(normalized)) {
-    return "take_break";
+  if (
+    /project.*(fall|behind|lag|attention)|which projects/.test(normalized)
+  ) {
+    return "projects_falling_behind";
   }
-  if (/summar|overview|progress report|how am i doing/.test(normalized)) {
-    return "summarize";
+  if (/summar.*week|this week|weekly summary/.test(normalized)) {
+    return "summarize_week";
+  }
+  if (/who has the most|most assigned|most tasks assigned/.test(normalized)) {
+    return "most_assigned";
+  }
+  if (
+    /how many.*completed|completed tasks|tasks completed|completion count/.test(
+      normalized
+    )
+  ) {
+    return "completed_count";
   }
 
   return null;
@@ -134,220 +90,230 @@ function matchQuestionId(input: string): KizunaSuggestedQuestionId | null {
 
 function formatTaskLine(task: Task, projects: EnrichedProject[]): string {
   const project = getProjectById(projects, task.projectId);
-  return `"${task.title}" (${project?.name ?? "project"}) — due ${formatDueDate(task.dueDate)}, ${task.priority} priority`;
+  const statusLabel = TASK_STATUS_LABELS[task.status];
+  return `"${task.title}" (${project?.name ?? "project"}) — ${statusLabel}, due ${formatDueDate(task.dueDate)}, ${task.priority} priority`;
 }
 
-function answerFocusToday(ctx: KizunaChatEngineContext): string {
-  const { workspace, projects } = ctx;
+function formatTaskPreview(
+  tasks: Task[],
+  projects: EnrichedProject[],
+  limit = PREVIEW_LIMIT
+): string {
+  return tasks
+    .slice(0, limit)
+    .map((task) => `• ${formatTaskLine(task, projects)}`)
+    .join("\n");
+}
+
+function formatOverflow(count: number, limit = PREVIEW_LIMIT): string {
+  if (count <= limit) return "";
+  return `\n\n…and ${count - limit} more. One step at a time is enough.`;
+}
+
+function noProjectsMessage(): string {
+  return "Create your first project so Kizuna can help you plan. Once projects and tasks are in your workspace, I can suggest what to focus on.";
+}
+
+function answerDueToday(ctx: KizunaChatEngineContext): string {
+  if (ctx.projects.length === 0) return noProjectsMessage();
+
   const reference = ctx.reference ?? new Date();
-  const overdue = getOverdueTasks(workspace.tasks, reference);
-  const upcoming = getUpcomingTasks(workspace.tasks, reference, 1);
-  const urgent = getUrgentTasks(workspace.tasks, 3);
+  const dueToday = getTasksDueToday(ctx.workspace.tasks, reference);
 
-  if (urgent.length === 0 && overdue.length === 0 && upcoming.length === 0) {
-    return "Based on your workspace, nothing urgent is flagged right now. You could pick one open task that would feel satisfying to move forward — even a small step counts.";
+  if (dueToday.length === 0) {
+    return "Nothing is due today — a good moment to get ahead on something that matters to you, or to take a breather.";
   }
 
-  const lines: string[] = [
-    "Here's what stands out from your current tasks:",
-  ];
-
-  if (overdue.length > 0) {
-    lines.push(
-      `• Overdue: ${formatTaskLine(overdue[0], projects)}${overdue.length > 1 ? ` (+${overdue.length - 1} more)` : ""}`
-    );
-  }
-
-  if (upcoming.length > 0) {
-    lines.push(`• Due soon: ${formatTaskLine(upcoming[0], projects)}`);
-  }
-
-  if (urgent.length > 0 && !overdue.includes(urgent[0]) && !upcoming.includes(urgent[0])) {
-    lines.push(`• High priority: ${formatTaskLine(urgent[0], projects)}`);
-  }
-
-  lines.push("Pick whichever feels most doable — momentum matters more than perfection.");
-  return lines.join("\n");
-}
-
-function answerProjectAttention(ctx: KizunaChatEngineContext): string {
-  const active = ctx.projects.filter((p) => p.status === "active");
-  if (active.length === 0) {
-    return "You don't have any active projects right now. When you're ready, starting or reopening a project could help organize your next steps.";
-  }
-
-  const ranked = [...active].sort((a, b) => {
-    if (a.progress !== b.progress) return a.progress - b.progress;
-    return parseDate(a.dueDate).getTime() - parseDate(b.dueDate).getTime();
-  });
-
-  const project = ranked[0];
-  const dueLabel = formatDueDate(project.dueDate);
-
-  if (project.progress < 40) {
-    return `"${project.name}" is at ${project.progress}% with ${project.taskCount} task${project.taskCount !== 1 ? "s" : ""} and due ${dueLabel}. A small check-in there could create some gentle momentum when you're ready.`;
-  }
-
-  return `"${project.name}" has the most room to grow among active projects (${project.progress}%, due ${dueLabel}). Even one completed task would move it forward nicely.`;
+  return `You have ${dueToday.length} open task${dueToday.length !== 1 ? "s" : ""} due today:\n${formatTaskPreview(dueToday, ctx.projects)}${formatOverflow(dueToday.length)}`;
 }
 
 function answerOverdueTasks(ctx: KizunaChatEngineContext): string {
+  if (ctx.projects.length === 0) return noProjectsMessage();
+
   const reference = ctx.reference ?? new Date();
   const overdue = getOverdueTasks(ctx.workspace.tasks, reference);
 
   if (overdue.length === 0) {
-    return "Good news — I don't see any overdue open tasks in your workspace. That's a calm place to be.";
+    return "You do not have any overdue tasks. That is a calm place to be — keep honoring your pace.";
   }
 
-  const preview = overdue
-    .slice(0, 5)
-    .map((task) => `• ${formatTaskLine(task, ctx.projects)}`)
-    .join("\n");
-
-  const suffix =
-    overdue.length > 5
-      ? `\n\n…and ${overdue.length - 5} more. Tackle them at your own pace — one at a time is enough.`
-      : "\n\nNo rush — choose one that feels manageable when you're ready.";
-
-  return `You have ${overdue.length} overdue open task${overdue.length !== 1 ? "s" : ""}:\n${preview}${suffix}`;
+  return `You have ${overdue.length} overdue open task${overdue.length !== 1 ? "s" : ""}:\n${formatTaskPreview(overdue, ctx.projects)}${formatOverflow(overdue.length)}\n\nPick one that feels manageable when you are ready.`;
 }
 
-function answerCompletedWeek(ctx: KizunaChatEngineContext): string {
+function answerWorkNext(ctx: KizunaChatEngineContext): string {
+  if (ctx.projects.length === 0) return noProjectsMessage();
+
   const reference = ctx.reference ?? new Date();
-  const stats = getCompletionStats(ctx.workspace.tasks, reference);
-  const completed = getTasksCompletedThisWeek(ctx.workspace.tasks, reference);
+  const ranked = rankNextTasks(ctx.workspace.tasks, reference);
 
-  if (stats.completedThisWeek === 0) {
-    return "I don't see any tasks completed this week yet. That's okay — the week isn't over, and a single finished task can shift the tone.";
+  if (ranked.length === 0) {
+    return "You do not have any open tasks right now. Add a task when you are ready, and I can help you prioritize.";
   }
 
-  const names = completed
-    .slice(0, 4)
-    .map((task) => `"${task.title}"`)
-    .join(", ");
-
-  const extra =
-    completed.length > 4 ? ` and ${completed.length - 4} more` : "";
-
-  return `You've completed ${stats.completedThisWeek} task${stats.completedThisWeek !== 1 ? "s" : ""} this week${names ? `, including ${names}${extra}` : ""}. That's real progress worth acknowledging.`;
-}
-
-function answerOnTrack(ctx: KizunaChatEngineContext): string {
-  const reference = ctx.reference ?? new Date();
-  const weekly = getWeeklyCompletionStats(ctx.workspace.tasks, reference);
-  const overdue = getOverdueTasks(ctx.workspace.tasks, reference);
-  const activeProjects = ctx.projects.filter((p) => p.status === "active");
-  const lagging = activeProjects.filter((p) => p.progress < 50);
-
-  const parts: string[] = [];
-
-  if (weekly.total > 0) {
-    parts.push(
-      `This week: ${weekly.completed} of ${weekly.total} due tasks completed (${weekly.percentage}%).`
-    );
-  } else {
-    parts.push("No tasks are due this week in your workspace.");
-  }
-
-  if (overdue.length > 0) {
-    parts.push(
-      `${overdue.length} open task${overdue.length !== 1 ? "s are" : " is"} overdue — you can revisit ${overdue.length === 1 ? "it" : "them"} whenever you're ready.`
-    );
-  } else {
-    parts.push("Nothing is overdue right now.");
-  }
-
-  if (lagging.length > 0) {
-    parts.push(
-      `"${lagging[0].name}" is at ${lagging[0].progress}% and may benefit from a check-in.`
-    );
-  }
-
-  parts.push(
-    overdue.length === 0 && weekly.percentage >= 50
-      ? "Overall, you're moving steadily — keep honoring your own pace."
-      : "You're not behind as a person — this is just a snapshot of your task list, and small steps still count."
-  );
-
-  return parts.join(" ");
-}
-
-function answerTakeBreak(ctx: KizunaChatEngineContext): string {
-  const reference = ctx.reference ?? new Date();
-  const sessions = getFocusSessionsToday(ctx.wellness, reference);
-  const { focusTimer, checkIn } = ctx.wellness;
-  const activeSession = Boolean(focusTimer.activeSessionStartedAt);
-
-  if (activeSession) {
-    return "You're in an active focus session right now. A short pause — water, a stretch, or looking away from the screen — could help you sustain that focus kindly.";
-  }
-
-  if (sessions >= 2) {
-    return `You've completed ${sessions} focus session${sessions !== 1 ? "s" : ""} today. That kind of effort adds up — a gentle break could feel really good right about now.`;
-  }
-
-  if (checkIn.mood === "stressed" || checkIn.mood === "tired") {
-    return "Your wellness check-in suggests you might be running low on energy. A brief break, hydration, or a few quiet minutes could be a caring choice.";
-  }
-
-  if (ctx.reminders.length >= 3) {
-    return "You have several reminders queued — that can be a signal to breathe and reset before pushing further. Even five minutes away from the screen helps.";
-  }
-
-  return "Based on your current data, a break isn't urgent, but it's always allowed. If your body is asking for rest, listening is productive too.";
-}
-
-function answerSummarize(ctx: KizunaChatEngineContext): string {
-  const reference = ctx.reference ?? new Date();
-  const completion = getCompletionStats(ctx.workspace.tasks, reference);
-  const garden = getGrowthGardenStats(ctx.workspace.tasks, reference);
-  const sessions = getFocusSessionsToday(ctx.wellness, reference);
-  const activeProjects = ctx.projects.filter((p) => p.status === "active");
-  const overdue = getOverdueTasks(ctx.workspace.tasks, reference);
-  const openCount = getOpenTasks(ctx.workspace.tasks).length;
-
+  const top = ranked[0];
   const lines = [
-    "Here's a snapshot from your stored workspace and wellness data:",
-    `• ${openCount} open task${openCount !== 1 ? "s" : ""}, ${overdue.length} overdue`,
-    `• ${completion.completedToday} completed today, ${completion.completedThisWeek} this week`,
-    `• ${completion.streakDays}-day completion streak`,
-    `• Growth garden: ${garden.stage} stage (${garden.progress}%)`,
-    `• ${activeProjects.length} active project${activeProjects.length !== 1 ? "s" : ""}`,
+    "Based on overdue status, due dates, priority, and in-progress work, I would suggest:",
+    `• ${formatTaskLine(top, ctx.projects)}`,
   ];
 
-  if (sessions > 0) {
-    lines.push(`• ${sessions} focus session${sessions !== 1 ? "s" : ""} today`);
+  const alternates = ranked.slice(1, 3);
+  if (alternates.length > 0) {
+    lines.push("", "Also worth a look:");
+    for (const task of alternates) {
+      lines.push(`• ${formatTaskLine(task, ctx.projects)}`);
+    }
   }
 
-  if (ctx.wellness.focusMusic.preferredSound) {
-    lines.push("• A preferred focus sound is saved in Wellness");
-  }
-
-  lines.push("This is based on your local data — not predictions, just where things stand right now.");
+  lines.push(
+    "",
+    "Ranking: overdue first, then due soon, then high priority, then in-progress tasks."
+  );
   return lines.join("\n");
+}
+
+function answerMyTasks(ctx: KizunaChatEngineContext): string {
+  if (!ctx.currentUserId) {
+    return "Sign in to see tasks assigned to you. Your workspace data loads after authentication.";
+  }
+
+  const myOpen = getMyOpenTasks(ctx.workspace.tasks, ctx.currentUserId);
+  const user = getUserById(ctx.workspace.users, ctx.currentUserId);
+  const label = user?.displayName.trim() || user?.name || "You";
+
+  if (myOpen.length === 0) {
+    return `${label}, you do not have any open tasks assigned right now. Check the Tasks page to pick something up, or enjoy the clear runway.`;
+  }
+
+  return `${label}, you have ${myOpen.length} open task${myOpen.length !== 1 ? "s" : ""}:\n${formatTaskPreview(myOpen, ctx.projects)}${formatOverflow(myOpen.length)}`;
+}
+
+function answerProjectsFallingBehind(ctx: KizunaChatEngineContext): string {
+  if (ctx.projects.length === 0) return noProjectsMessage();
+
+  const active = ctx.projects.filter((project) => project.status === "active");
+  if (active.length === 0) {
+    return "You do not have any active projects. Reactivate or create a project when you are ready to track progress.";
+  }
+
+  const fallingBehind = getFallingBehindProjects(ctx.projects);
+  if (fallingBehind.length === 0) {
+    return "Your active projects all have tasks tracked — nothing looks unusually behind right now.";
+  }
+
+  const preview = fallingBehind
+    .slice(0, PREVIEW_LIMIT)
+    .map(
+      (project) =>
+        `• "${project.name}" — ${project.progress}% complete (${project.taskCount} task${project.taskCount !== 1 ? "s" : ""}, due ${formatDueDate(project.dueDate)})`
+    )
+    .join("\n");
+
+  return `These active projects have the lowest completion rates:\n${preview}${formatOverflow(fallingBehind.length)}\n\nEven one finished task can lift a project's momentum.`;
+}
+
+function answerSummarizeWeek(ctx: KizunaChatEngineContext): string {
+  if (ctx.projects.length === 0) return noProjectsMessage();
+
+  const reference = ctx.reference ?? new Date();
+  const summary = buildWeeklySummary(
+    ctx.workspace.tasks,
+    ctx.projects,
+    reference
+  );
+
+  const lines = [
+    "Here is your week at a glance:",
+    `• ${summary.completedThisWeek} task${summary.completedThisWeek !== 1 ? "s" : ""} completed this week`,
+    `• ${summary.openTasks} task${summary.openTasks !== 1 ? "s" : ""} still open`,
+    `• ${summary.overdueCount} overdue task${summary.overdueCount !== 1 ? "s" : ""}`,
+  ];
+
+  if (summary.overdueCount === 0) {
+    lines.push("• No overdue tasks — nice and steady.");
+  }
+
+  if (summary.laggingProjects.length > 0) {
+    lines.push("", "Projects with the lowest completion:");
+    for (const project of summary.laggingProjects) {
+      lines.push(
+        `• "${project.name}" — ${project.progress}% (${project.taskCount} task${project.taskCount !== 1 ? "s" : ""})`
+      );
+    }
+  } else if (ctx.projects.some((project) => project.status === "active")) {
+    lines.push("", "Active projects are tracking evenly — no standouts falling behind.");
+  }
+
+  lines.push("", "This summary uses your live workspace data — not predictions.");
+  return lines.join("\n");
+}
+
+function answerMostAssigned(ctx: KizunaChatEngineContext): string {
+  const topAssignees = getTopAssignees(
+    ctx.workspace.tasks,
+    ctx.workspace.users
+  );
+
+  if (topAssignees.length === 0) {
+    return "No open tasks are assigned to teammates yet. Assign tasks from the Tasks page when you are ready.";
+  }
+
+  const count = topAssignees[0].count;
+  const names = topAssignees.map((entry) => entry.displayName).join(", ");
+
+  if (topAssignees.length === 1) {
+    return `${names} has the most assigned open tasks right now — ${count} task${count !== 1 ? "s" : ""}.`;
+  }
+
+  return `${names} are tied for the most assigned open tasks — ${count} each.`;
+}
+
+function answerCompletedCount(ctx: KizunaChatEngineContext): string {
+  const completed = getCompletedTasks(ctx.workspace.tasks);
+  const open = getOpenTasks(ctx.workspace.tasks).length;
+  const total = ctx.workspace.tasks.length;
+
+  if (total === 0) {
+    return "Your workspace does not have any tasks yet. Create a project and add tasks to start tracking completions.";
+  }
+
+  let message = `${completed.length} of ${total} task${total !== 1 ? "s" : ""} ${completed.length === 1 ? "is" : "are"} completed (${open} still open).`;
+
+  if (ctx.currentUserId) {
+    const myCompleted = completed.filter(
+      (task) =>
+        task.assigneeId === ctx.currentUserId ||
+        (task.assigneeId === null && task.createdBy === ctx.currentUserId)
+    ).length;
+    if (myCompleted > 0) {
+      message += ` You have completed ${myCompleted} of those.`;
+    }
+  }
+
+  return message;
 }
 
 const ANSWER_HANDLERS: Record<
   KizunaSuggestedQuestionId,
   (ctx: KizunaChatEngineContext) => string
 > = {
-  focus_today: answerFocusToday,
-  project_attention: answerProjectAttention,
+  due_today: answerDueToday,
   overdue_tasks: answerOverdueTasks,
-  completed_week: answerCompletedWeek,
-  on_track: answerOnTrack,
-  take_break: answerTakeBreak,
-  summarize: answerSummarize,
+  work_next: answerWorkNext,
+  my_tasks: answerMyTasks,
+  projects_falling_behind: answerProjectsFallingBehind,
+  summarize_week: answerSummarizeWeek,
+  most_assigned: answerMostAssigned,
+  completed_count: answerCompletedCount,
 };
 
-/** Generate a rule-based Kizuna reply from local workspace and wellness data. */
+/** Generate a rule-based Kizuna reply from local workspace data. */
 export function generateKizunaChatResponse(
   userMessage: string,
   context: KizunaChatEngineContext
 ): string {
   const trimmed = userMessage.trim();
   if (!trimmed) {
-    return "Ask me about your tasks, projects, deadlines, progress, or wellness — I'm reading from your local workspace data.";
+    return "Ask about due dates, overdue work, your tasks, project progress, weekly summaries, or completion counts — I read from your workspace data.";
   }
 
   const questionId = matchQuestionId(trimmed);

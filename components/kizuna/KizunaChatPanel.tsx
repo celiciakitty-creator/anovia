@@ -80,7 +80,7 @@ export function KizunaChatPanel() {
               Ask {AI_ASSISTANT_NAME}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Rule-based answers from your local workspace data — not an external AI.
+              Kizuna uses workspace rules and data — not a generative AI model.
             </p>
           </div>
           <div className="flex shrink-0 gap-1">
@@ -105,15 +105,16 @@ export function KizunaChatPanel() {
           aria-relevant="additions"
         >
           {!isLoaded ? (
-            <p className="text-sm text-muted-foreground">Loading conversation…</p>
+            <p className="text-sm text-muted-foreground">Loading workspace…</p>
           ) : messages.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 px-4 py-5">
               <p className="text-sm text-foreground">
-                Hi — I can help with tasks, deadlines, projects, and wellness using
-                your saved Anovia data.
+                Hi — I can answer questions about your tasks, projects, and
+                progress using live workspace data.
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Pick a suggested question or type your own below.
+                Pick a suggested question below, or type your own. Conversations
+                stay in this session only.
               </p>
             </div>
           ) : (

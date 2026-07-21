@@ -4,21 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useKizunaReminders } from "./KizunaReminderProvider";
 import { useWellness } from "@/components/wellness";
 import { useWorkspace } from "@/components/workspace";
-import { useStorageHydration } from "@/hooks/useStorageHydration";
 import { generateKizunaChatResponse } from "@/lib/kizuna-chat-engine";
-import {
-  clearKizunaChatMessages,
-  readKizunaChatMessages,
-  writeKizunaChatMessages,
-} from "@/lib/kizuna-chat-storage";
 import { generateId } from "@/lib/id";
 import type { KizunaChatMessage } from "@/types/kizuna-chat";
 import { KIZUNA_CHAT_MAX_MESSAGES } from "@/types/kizuna-chat";
@@ -37,19 +29,12 @@ type KizunaChatContextValue = {
 const KizunaChatContext = createContext<KizunaChatContextValue | null>(null);
 
 export function KizunaChatProvider({ children }: { children: React.ReactNode }) {
-  const { raw, projects } = useWorkspace();
+  const { raw, projects, currentUserId, isLoaded: workspaceLoaded } =
+    useWorkspace();
   const { data: wellness } = useWellness();
   const { reminders } = useKizunaReminders();
-  const storageReady = useStorageHydration();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<KizunaChatMessage[]>([]);
-  const chatLoadedRef = useRef(false);
-
-  useEffect(() => {
-    if (!storageReady || chatLoadedRef.current) return;
-    chatLoadedRef.current = true;
-    setMessages(readKizunaChatMessages());
-  }, [storageReady]);
 
   const openChat = useCallback(() => setIsOpen(true), []);
   const closeChat = useCallback(() => setIsOpen(false), []);
@@ -71,6 +56,7 @@ export function KizunaChatProvider({ children }: { children: React.ReactNode }) 
         projects,
         wellness,
         reminders,
+        currentUserId,
       });
 
       const assistantMessage: KizunaChatMessage = {
@@ -80,19 +66,14 @@ export function KizunaChatProvider({ children }: { children: React.ReactNode }) 
         createdAt: new Date().toISOString(),
       };
 
-      setMessages((current) => {
-        const next = [...current, userMessage, assistantMessage].slice(
-          -KIZUNA_CHAT_MAX_MESSAGES
-        );
-        writeKizunaChatMessages(next);
-        return next;
-      });
+      setMessages((current) =>
+        [...current, userMessage, assistantMessage].slice(-KIZUNA_CHAT_MAX_MESSAGES)
+      );
     },
-    [projects, raw, reminders, wellness]
+    [projects, raw, reminders, wellness, currentUserId]
   );
 
   const clearConversation = useCallback(() => {
-    clearKizunaChatMessages();
     setMessages([]);
   }, []);
 
@@ -100,7 +81,7 @@ export function KizunaChatProvider({ children }: { children: React.ReactNode }) 
     () => ({
       isOpen,
       messages,
-      isLoaded: storageReady,
+      isLoaded: workspaceLoaded,
       openChat,
       closeChat,
       sendMessage,
@@ -109,7 +90,7 @@ export function KizunaChatProvider({ children }: { children: React.ReactNode }) 
     [
       isOpen,
       messages,
-      storageReady,
+      workspaceLoaded,
       openChat,
       closeChat,
       sendMessage,
