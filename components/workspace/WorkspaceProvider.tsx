@@ -15,6 +15,12 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { useStorageHydration } from "@/hooks/useStorageHydration";
 import { buildCalendarEvents } from "@/lib/calendar-utils";
 import {
+  createCalendarEvent,
+  deleteCalendarEvent,
+  getCalendarEvents,
+  updateCalendarEvent,
+} from "@/lib/calendar-db";
+import {
   createProject as createProjectDb,
   createTask as createTaskDb,
   deleteProject as deleteProjectDb,
@@ -43,7 +49,6 @@ import type { Project, ProjectInput } from "@/types/project";
 import type { Task, TaskInput } from "@/types/task";
 import type { Label, User } from "@/types";
 import type { WorkspaceData } from "@/types/workspace";
-import { generateId } from "@/lib/id";
 
 const AUTH_SIGNED_OUT_MESSAGE =
   "You must be signed in to access workspace data.";
@@ -68,9 +73,9 @@ type WorkspaceContextValue = {
   updateTask: (id: string, input: TaskInput) => Promise<void>;
   updateTaskStatus: (id: string, status: Task["status"]) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
-  createEvent: (input: CalendarEventInput) => CalendarEvent;
-  updateEvent: (id: string, input: CalendarEventInput) => void;
-  deleteEvent: (id: string) => void;
+  createEvent: (input: CalendarEventInput) => Promise<CalendarEvent>;
+  updateEvent: (id: string, input: CalendarEventInput) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
   setCompletedSectionExpanded: (expanded: boolean) => void;
   getProject: (id: string) => EnrichedProject | undefined;
   getTask: (id: string) => Task | undefined;
@@ -95,7 +100,6 @@ const EMPTY_WORKSPACE: WorkspaceData = {
 function persistLocalSlice(data: WorkspaceData) {
   writeWorkspaceLocal({
     labels: data.labels,
-    events: data.events,
     completionMeta: data.completionMeta,
   });
 }
@@ -127,7 +131,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setData((current) => ({
         ...current,
         labels: local.labels,
-        events: local.events,
         completionMeta: local.completionMeta,
       }));
     }
@@ -140,10 +143,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       workspaceLoadingRef.current = true;
 
       try {
-        const [projects, tasks, users] = await Promise.all([
+        const [projects, tasks, users, events] = await Promise.all([
           getProjects(supabase),
           getTasks(supabase),
           getProfiles(supabase),
+          getCalendarEvents(supabase),
         ]);
 
         loadedUserIdRef.current = userId;
@@ -153,6 +157,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
           users,
           projects,
           tasks,
+          events,
         }));
         setLoadError(null);
       } catch (error) {
@@ -417,46 +422,42 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const createEvent = useCallback(
-    (input: CalendarEventInput): CalendarEvent => {
-      const now = new Date().toISOString();
-      const event: CalendarEvent = {
-        id: generateId("event"),
-        ...input,
-        createdAt: now,
-        updatedAt: now,
-      };
-      updateLocal((current) => ({
+    async (input: CalendarEventInput): Promise<CalendarEvent> => {
+      const supabase = createClient();
+      const creatorId =
+        currentUserId ?? (await getAuthenticatedUserId(supabase));
+      const event = await createCalendarEvent(supabase, input, creatorId);
+      setData((current) => ({
         ...current,
         events: [...(current.events ?? []), event],
       }));
       return event;
     },
-    [updateLocal]
+    [currentUserId]
   );
 
   const updateEvent = useCallback(
-    (id: string, input: CalendarEventInput) => {
-      updateLocal((current) => ({
+    async (id: string, input: CalendarEventInput): Promise<void> => {
+      const supabase = createClient();
+      const event = await updateCalendarEvent(supabase, id, input);
+      setData((current) => ({
         ...current,
-        events: (current.events ?? []).map((event) =>
-          event.id === id
-            ? { ...event, ...input, updatedAt: new Date().toISOString() }
-            : event
+        events: (current.events ?? []).map((existing) =>
+          existing.id === id ? event : existing
         ),
       }));
     },
-    [updateLocal]
+    []
   );
 
-  const deleteEvent = useCallback(
-    (id: string) => {
-      updateLocal((current) => ({
-        ...current,
-        events: (current.events ?? []).filter((event) => event.id !== id),
-      }));
-    },
-    [updateLocal]
-  );
+  const deleteEvent = useCallback(async (id: string): Promise<void> => {
+    const supabase = createClient();
+    await deleteCalendarEvent(supabase, id);
+    setData((current) => ({
+      ...current,
+      events: (current.events ?? []).filter((event) => event.id !== id),
+    }));
+  }, []);
 
   const setCompletedSectionExpanded = useCallback(
     (expanded: boolean) => {
@@ -531,11 +532,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const calendarEvents = useMemo(() => {
     try {
       const reference = isHydrated ? new Date() : SSR_CALENDAR_REFERENCE;
-      return buildCalendarEvents(data, reference);
+      return buildCalendarEvents(data, reference, currentUserId);
     } catch {
       return [];
     }
-  }, [data, isHydrated]);
+  }, [data, isHydrated, currentUserId]);
 
   const value = useMemo<WorkspaceContextValue>(() => {
     return {

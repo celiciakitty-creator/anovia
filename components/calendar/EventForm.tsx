@@ -67,7 +67,7 @@ function EventFormContent({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (eventSubmit: React.FormEvent) => {
+  const handleSubmit = async (eventSubmit: React.FormEvent) => {
     eventSubmit.preventDefault();
     if (isSubmitting) return;
 
@@ -79,12 +79,19 @@ function EventFormContent({
 
     try {
       if (event) {
-        updateEvent(event.id, form);
+        await updateEvent(event.id, form);
       } else {
-        createEvent(form);
+        await createEvent(form);
       }
       onSaved?.();
       onClose();
+    } catch (error) {
+      setErrors({
+        title:
+          error instanceof Error
+            ? error.message
+            : "Unable to save this calendar event.",
+      });
     } finally {
       setIsSubmitting(false);
     }

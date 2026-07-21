@@ -17,9 +17,10 @@ Anovia uses the **Next.js App Router** with client-side feature providers and ty
 | Domain | Storage |
 |--------|---------|
 | Profiles, projects, tasks | Supabase PostgreSQL |
+| Calendar events | Supabase PostgreSQL (`calendar_events`) |
 | Direct messages (1:1 chat) | Supabase PostgreSQL (`direct_conversations`, `direct_messages`) |
 | In-app notifications | Supabase PostgreSQL (`notifications`) |
-| Labels, calendar events, completion UI state | Browser `localStorage` (`lib/workspace-storage.ts`) |
+| Labels, completion UI state | Browser `localStorage` (`lib/workspace-storage.ts`) |
 | Comments, theme, wellness, break zone, Kizuna chat, sidebar, onboarding | Browser `localStorage` |
 
 Do not store profiles, projects, or tasks in `localStorage`.
@@ -52,6 +53,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 | `direct_conversations` | One-to-one DM threads between two profiles (canonical pair order) |
 | `direct_messages` | Messages within a direct conversation |
 | `notifications` | In-app notifications (assignments, deadlines, DMs) |
+| `calendar_events` | User-created calendar events (meetings, focus, wellness) |
 
 **Triggers:**
 - `handle_new_user` — inserts a `profiles` row on sign-up from auth metadata
@@ -60,6 +62,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 **Data access helpers:**
 - `lib/workspace-db.ts` — projects and tasks CRUD; maps DB snake_case ↔ app camelCase
 - `lib/profile-db.ts` — profile load, ensure (create if missing), and update
+- `lib/calendar-db.ts` — calendar event CRUD; maps DB timestamptz ↔ app date/time fields
 - `lib/direct-messages-db.ts` — direct conversation lookup/create and message send/load
 - `lib/notifications-db.ts` — notification fetch, deadline sync RPC, mark read
 - `lib/workspace-utils.ts` — enrichment (progress, labels display, user lookup)
@@ -72,7 +75,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 
 ## Row Level Security (RLS)
 
-RLS is enabled on `profiles`, `projects`, `tasks`, `direct_conversations`, `direct_messages`, and `notifications`.
+RLS is enabled on `profiles`, `projects`, `tasks`, `direct_conversations`, `direct_messages`, `notifications`, and `calendar_events`.
 
 | Table | Policy summary |
 |-------|----------------|
@@ -82,6 +85,7 @@ RLS is enabled on `profiles`, `projects`, `tasks`, `direct_conversations`, `dire
 | **direct_conversations** | `SELECT` / `INSERT` only when `auth.uid()` is one of the two participants; pair stored with `participant_one < participant_two`. |
 | **direct_messages** | `SELECT` / `INSERT` only for conversation participants; `sender_id` must equal `auth.uid()` on insert. |
 | **notifications** | `SELECT` own rows only. Inserts via SECURITY DEFINER triggers/RPCs; mark-read via RPC. |
+| **calendar_events** | `SELECT` creator or project owner (linked events); `INSERT`/`UPDATE`/`DELETE` creator only. |
 
 When adding tables or policies, update `supabase/schema.sql` and document any manual SQL steps for the user.
 

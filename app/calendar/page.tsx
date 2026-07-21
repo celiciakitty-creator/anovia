@@ -21,7 +21,13 @@ import type { CalendarEvent } from "@/types/calendar";
 const SSR_CALENDAR_ANCHOR = new Date(Date.UTC(2026, 6, 1, 12, 0, 0));
 
 export default function CalendarPage() {
-  const { calendarEvents: rawCalendarEvents, deleteEvent, getEvent } = useWorkspace();
+  const {
+    calendarEvents: rawCalendarEvents,
+    deleteEvent,
+    getEvent,
+    isLoaded,
+    loadError,
+  } = useWorkspace();
   const calendarEvents = rawCalendarEvents ?? [];
   const isHydrated = useHydrated();
   const [viewDate, setViewDate] = useState(SSR_CALENDAR_ANCHOR);
@@ -74,9 +80,22 @@ export default function CalendarPage() {
     ? toDateString(new Date())
     : toDateString(SSR_CALENDAR_ANCHOR);
 
+  if (!isLoaded) {
+    return (
+      <MainLayout subtitle="Calendar">
+        <p className="text-sm text-muted-foreground">Loading calendar…</p>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout subtitle="Calendar">
       <div className="mx-auto max-w-7xl">
+        {loadError ? (
+          <p className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            {loadError}
+          </p>
+        ) : null}
         <RevealOnScroll>
           <div className="mb-6">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
@@ -150,8 +169,9 @@ export default function CalendarPage() {
       <DeleteConfirmModal
         open={Boolean(deletingEventId)}
         onClose={() => setDeletingEventId(null)}
-        onConfirm={() => {
-          if (deletingEventId) deleteEvent(deletingEventId);
+        onConfirm={async () => {
+          if (!deletingEventId) return;
+          await deleteEvent(deletingEventId);
         }}
         title="Delete event"
         description={`Are you sure you want to delete "${deletingEvent?.title}"?`}

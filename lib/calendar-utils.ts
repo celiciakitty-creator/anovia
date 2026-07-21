@@ -128,7 +128,10 @@ function taskDeadlineEvent(task: Task, reference: Date): CalendarDisplayEvent {
   };
 }
 
-function storedEventToDisplay(event: CalendarEvent): CalendarDisplayEvent {
+function storedEventToDisplay(
+  event: CalendarEvent,
+  currentUserId: string | null
+): CalendarDisplayEvent {
   return {
     id: event.id,
     title: event.title,
@@ -139,7 +142,7 @@ function storedEventToDisplay(event: CalendarEvent): CalendarDisplayEvent {
     projectId: event.projectId,
     description: event.description,
     source: "stored",
-    editable: true,
+    editable: !currentUserId || event.creatorId === currentUserId,
     overdue: false,
   };
 }
@@ -147,13 +150,16 @@ function storedEventToDisplay(event: CalendarEvent): CalendarDisplayEvent {
 /** Merge stored calendar events with virtual project/task deadline events. */
 export function buildCalendarEvents(
   data: WorkspaceData,
-  reference = new Date()
+  reference = new Date(),
+  currentUserId: string | null = null
 ): CalendarDisplayEvent[] {
   const storedEvents = Array.isArray(data.events) ? data.events : [];
   const projects = Array.isArray(data.projects) ? data.projects : [];
   const tasks = Array.isArray(data.tasks) ? data.tasks : [];
 
-  const stored = storedEvents.map(storedEventToDisplay);
+  const stored = storedEvents.map((event) =>
+    storedEventToDisplay(event, currentUserId)
+  );
   const projectDeadlines = projects
     .filter((p) => p.status !== "archived")
     .map((p) => projectDeadlineEvent(p, reference));

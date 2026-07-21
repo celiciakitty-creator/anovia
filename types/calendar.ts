@@ -13,7 +13,10 @@ export type CalendarEvent = {
   endTime: string;
   type: StoredEventType;
   projectId: string | null;
+  creatorId: string;
   description: string;
+  allDay?: boolean;
+  color?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -26,6 +29,8 @@ export type CalendarEventInput = {
   type: StoredEventType;
   projectId: string | null;
   description: string;
+  allDay?: boolean;
+  color?: string | null;
 };
 
 export type CalendarDisplayEvent = {
