@@ -29,11 +29,11 @@ export function CommentThread({
   parentType,
   parentId,
   title = "Discussion",
-  description = "Comments are saved locally in your browser — not real-time collaboration.",
+  description = "Comments sync to your workspace and appear on any signed-in device.",
   embedded = false,
   className,
 }: CommentThreadProps) {
-  const { getThreadComments, isLoaded } = useComments();
+  const { getThreadComments, isLoaded, loadError } = useComments();
   const composerRef = useRef<HTMLDivElement>(null);
   const threadComments = useMemo(
     () => getThreadComments(parentType, parentId),
@@ -59,6 +59,10 @@ export function CommentThread({
 
       {!isLoaded ? (
         <p className="text-sm text-muted-foreground">Loading comments…</p>
+      ) : loadError ? (
+        <p className="text-sm text-danger" role="alert">
+          {loadError}
+        </p>
       ) : threadComments.length === 0 ? (
         <EmptyState
           compact

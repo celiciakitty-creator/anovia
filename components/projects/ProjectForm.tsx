@@ -185,7 +185,7 @@ function ProjectFormContent({ project, onClose, onSaved }: ProjectFormContentPro
             parentType="project"
             parentId={project.id}
             title="Project discussion"
-            description="Share updates, decisions, and ideas for this project. Saved locally in your browser."
+            description="Share updates, decisions, and ideas for this project. Synced to your workspace."
           />
         </div>
       ) : null}

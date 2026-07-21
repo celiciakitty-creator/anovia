@@ -272,7 +272,7 @@ function TaskFormContent({
             parentType="task"
             parentId={task.id}
             title="Task comments"
-            description="Note blockers, questions, updates, and review feedback. Saved locally in your browser."
+            description="Note blockers, questions, updates, and review feedback. Synced to your workspace."
           />
         </div>
       ) : null}

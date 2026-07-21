@@ -10,18 +10,22 @@ import {
   useState,
 } from "react";
 import { useWorkspace } from "@/components/workspace";
-import { useStorageHydration } from "@/hooks/useStorageHydration";
 import {
   canEditComment,
   getCommentCountForThread,
   getCommentsForThread,
   getCurrentUser,
   validateCommentMessage,
-  CURRENT_USER_ID,
   DEFAULT_COMMENT_CATEGORY,
 } from "@/lib/comment-utils";
-import { readComments, writeComments } from "@/lib/comments-storage";
-import { generateId } from "@/lib/id";
+import {
+  createComment as createCommentDb,
+  deleteComment as deleteCommentDb,
+  getComments,
+  mapCommentRow,
+  updateComment as updateCommentDb,
+} from "@/lib/comments-db";
+import { createClient } from "@/utils/supabase/client";
 import type {
   Comment,
   CommentCategory,
@@ -29,10 +33,15 @@ import type {
   CommentParentType,
 } from "@/types/comment";
 
+type MutationResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 type CommentsContextValue = {
   comments: Comment[];
   isLoaded: boolean;
-  currentUserId: string;
+  loadError: string | null;
+  currentUserId: string | null;
   getThreadComments: (
     parentType: CommentParentType,
     parentId: string
@@ -41,142 +50,204 @@ type CommentsContextValue = {
     parentType: CommentParentType,
     parentId: string
   ) => number;
-  createComment: (input: CommentInput) => { ok: true } | { ok: false; error: string };
+  createComment: (input: CommentInput) => Promise<MutationResult>;
   updateComment: (
     id: string,
     message: string,
     category?: CommentCategory
-  ) => { ok: true } | { ok: false; error: string };
-  deleteComment: (id: string) => void;
+  ) => Promise<MutationResult>;
+  deleteComment: (id: string) => Promise<void>;
+  refreshComments: () => Promise<void>;
 };
 
 const CommentsContext = createContext<CommentsContextValue | null>(null);
 
 export function CommentsProvider({ children }: { children: React.ReactNode }) {
-  const { users } = useWorkspace();
-  const storageReady = useStorageHydration();
+  const { users, currentUserId, isLoaded: workspaceLoaded } = useWorkspace();
   const [comments, setComments] = useState<Comment[]>([]);
-  const commentsLoadedRef = useRef(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadedUserIdRef = useRef<string | null>(null);
+
+  const loadComments = useCallback(async () => {
+    if (!workspaceLoaded || !currentUserId) return;
+
+    setLoadError(null);
+
+    try {
+      const supabase = createClient();
+      const rows = await getComments(supabase);
+      setComments(rows.map((row) => mapCommentRow(row, users)));
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Unable to load comments."
+      );
+    } finally {
+      setIsLoaded(true);
+    }
+  }, [workspaceLoaded, currentUserId, users]);
 
   useEffect(() => {
-    if (!storageReady || commentsLoadedRef.current) return;
-    commentsLoadedRef.current = true;
-    setComments(readComments());
-  }, [storageReady]);
+    if (!workspaceLoaded) return;
 
-  const persist = useCallback((next: Comment[]) => {
-    setComments(next);
-    writeComments(next);
-  }, []);
+    if (!currentUserId) {
+      loadedUserIdRef.current = null;
+      queueMicrotask(() => {
+        setComments([]);
+        setIsLoaded(true);
+      });
+      return;
+    }
+
+    if (loadedUserIdRef.current === currentUserId) return;
+
+    loadedUserIdRef.current = currentUserId;
+    queueMicrotask(() => {
+      setIsLoaded(false);
+      void loadComments();
+    });
+  }, [workspaceLoaded, currentUserId, loadComments]);
 
   const getThreadComments = useCallback(
     (parentType: CommentParentType, parentId: string) => {
-      if (!storageReady) return [];
-      return getCommentsForThread(comments, parentType, parentId);
+      if (!isLoaded) return [];
+      return getCommentsForThread(comments, parentType, parentId).map(
+        (comment) => {
+          const author = users.find((user) => user.id === comment.authorId);
+          if (!author) return comment;
+          return {
+            ...comment,
+            authorName: author.displayName.trim() || author.name,
+            authorInitials: author.initials,
+          };
+        }
+      );
     },
-    [comments, storageReady]
+    [comments, isLoaded, users]
   );
 
   const getCommentCount = useCallback(
     (parentType: CommentParentType, parentId: string) => {
-      if (!storageReady) return 0;
+      if (!isLoaded) return 0;
       return getCommentCountForThread(comments, parentType, parentId);
     },
-    [comments, storageReady]
+    [comments, isLoaded]
   );
 
+  const refreshComments = useCallback(async () => {
+    loadedUserIdRef.current = currentUserId;
+    await loadComments();
+  }, [currentUserId, loadComments]);
+
   const createComment = useCallback(
-    (input: CommentInput) => {
+    async (input: CommentInput): Promise<MutationResult> => {
       const validation = validateCommentMessage(input.message);
       if (!validation.valid) {
-        return { ok: false as const, error: validation.error ?? "Invalid comment." };
+        return { ok: false, error: validation.error ?? "Invalid comment." };
       }
 
-      const author = getCurrentUser(users);
-      if (!author) {
-        return { ok: false as const, error: "Unable to resolve current user." };
+      if (input.parentType === "team") {
+        return {
+          ok: false,
+          error: "Team comments are not available yet.",
+        };
       }
 
-      const now = new Date().toISOString();
-      const comment: Comment = {
-        id: generateId("comment"),
-        parentType: input.parentType,
-        parentId: input.parentId,
-        authorId: author.id,
-        authorName: author.name,
-        authorInitials: author.initials,
-        message: input.message.trim(),
-        category: input.category,
-        createdAt: now,
-        updatedAt: now,
-        edited: false,
-      };
+      const author = getCurrentUser(users, currentUserId);
+      if (!author || !currentUserId) {
+        return { ok: false, error: "You must be signed in to post comments." };
+      }
 
-      persist([comment, ...comments]);
-      return { ok: true as const };
+      try {
+        const supabase = createClient();
+        const row = await createCommentDb(supabase, input, currentUserId);
+        const comment = mapCommentRow(row, users);
+        setComments((current) => [comment, ...current]);
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          error:
+            error instanceof Error ? error.message : "Unable to post comment.",
+        };
+      }
     },
-    [comments, persist, users]
+    [currentUserId, users]
   );
 
   const updateComment = useCallback(
-    (id: string, message: string, category?: CommentCategory) => {
+    async (
+      id: string,
+      message: string,
+      category?: CommentCategory
+    ): Promise<MutationResult> => {
       const validation = validateCommentMessage(message);
       if (!validation.valid) {
-        return { ok: false as const, error: validation.error ?? "Invalid comment." };
+        return { ok: false, error: validation.error ?? "Invalid comment." };
       }
 
       const existing = comments.find((comment) => comment.id === id);
-      if (!existing || !canEditComment(existing, CURRENT_USER_ID)) {
-        return { ok: false as const, error: "You can only edit your own comments." };
+      if (!existing || !canEditComment(existing, currentUserId)) {
+        return { ok: false, error: "You can only edit your own comments." };
       }
 
-      const now = new Date().toISOString();
-      persist(
-        comments.map((comment) =>
-          comment.id === id
-            ? {
-                ...comment,
-                message: message.trim(),
-                category: category ?? comment.category,
-                updatedAt: now,
-                edited: true,
-              }
-            : comment
-        )
-      );
-      return { ok: true as const };
+      try {
+        const supabase = createClient();
+        const row = await updateCommentDb(supabase, id, message, category);
+        const updated = mapCommentRow(row, users);
+        setComments((current) =>
+          current.map((comment) => (comment.id === id ? updated : comment))
+        );
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          error:
+            error instanceof Error ? error.message : "Unable to update comment.",
+        };
+      }
     },
-    [comments, persist]
+    [comments, currentUserId, users]
   );
 
-  const deleteComment = useCallback(
-    (id: string) => {
+  const deleteCommentById = useCallback(
+    async (id: string): Promise<void> => {
       const existing = comments.find((comment) => comment.id === id);
-      if (!existing || !canEditComment(existing, CURRENT_USER_ID)) return;
-      persist(comments.filter((comment) => comment.id !== id));
+      if (!existing || !canEditComment(existing, currentUserId)) {
+        throw new Error("You can only delete your own comments.");
+      }
+
+      const supabase = createClient();
+      await deleteCommentDb(supabase, id);
+      setComments((current) => current.filter((comment) => comment.id !== id));
     },
-    [comments, persist]
+    [comments, currentUserId]
   );
 
-  const value = useMemo(
+  const value = useMemo<CommentsContextValue>(
     () => ({
       comments,
-      isLoaded: storageReady,
-      currentUserId: CURRENT_USER_ID,
+      isLoaded,
+      loadError,
+      currentUserId,
       getThreadComments,
       getCommentCount,
       createComment,
       updateComment,
-      deleteComment,
+      deleteComment: deleteCommentById,
+      refreshComments,
     }),
     [
       comments,
-      storageReady,
+      isLoaded,
+      loadError,
+      currentUserId,
       getThreadComments,
       getCommentCount,
       createComment,
       updateComment,
-      deleteComment,
+      deleteCommentById,
+      refreshComments,
     ]
   );
 

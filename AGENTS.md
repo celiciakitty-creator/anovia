@@ -18,10 +18,11 @@ Anovia uses the **Next.js App Router** with client-side feature providers and ty
 |--------|---------|
 | Profiles, projects, tasks | Supabase PostgreSQL |
 | Calendar events | Supabase PostgreSQL (`calendar_events`) |
+| Project and task comments | Supabase PostgreSQL (`comments`) |
 | Direct messages (1:1 chat) | Supabase PostgreSQL (`direct_conversations`, `direct_messages`) |
 | In-app notifications | Supabase PostgreSQL (`notifications`) |
 | Labels, completion UI state | Browser `localStorage` (`lib/workspace-storage.ts`) |
-| Comments, theme, wellness, break zone, Kizuna chat, sidebar, onboarding | Browser `localStorage` |
+| Theme, wellness, break zone, Kizuna chat, sidebar, onboarding | Browser `localStorage` |
 
 Do not store profiles, projects, or tasks in `localStorage`.
 
@@ -54,6 +55,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 | `direct_messages` | Messages within a direct conversation |
 | `notifications` | In-app notifications (assignments, deadlines, DMs) |
 | `calendar_events` | User-created calendar events (meetings, focus, wellness) |
+| `comments` | Project and task discussion comments |
 
 **Triggers:**
 - `handle_new_user` — inserts a `profiles` row on sign-up from auth metadata
@@ -65,6 +67,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 - `lib/calendar-db.ts` — calendar event CRUD; maps DB timestamptz ↔ app date/time fields
 - `lib/direct-messages-db.ts` — direct conversation lookup/create and message send/load
 - `lib/notifications-db.ts` — notification fetch, deadline sync RPC, mark read
+- `lib/comments-db.ts` — project/task comment CRUD; maps DB snake_case ↔ app camelCase
 - `lib/workspace-utils.ts` — enrichment (progress, labels display, user lookup)
 
 **Known schema gaps (do not assume these exist in the DB):**
@@ -75,7 +78,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 
 ## Row Level Security (RLS)
 
-RLS is enabled on `profiles`, `projects`, `tasks`, `direct_conversations`, `direct_messages`, `notifications`, and `calendar_events`.
+RLS is enabled on `profiles`, `projects`, `tasks`, `direct_conversations`, `direct_messages`, `notifications`, `calendar_events`, and `comments`.
 
 | Table | Policy summary |
 |-------|----------------|
@@ -86,6 +89,7 @@ RLS is enabled on `profiles`, `projects`, `tasks`, `direct_conversations`, `dire
 | **direct_messages** | `SELECT` / `INSERT` only for conversation participants; `sender_id` must equal `auth.uid()` on insert. |
 | **notifications** | `SELECT` own rows only. Inserts via SECURITY DEFINER triggers/RPCs; mark-read via RPC. |
 | **calendar_events** | `SELECT` creator or project owner (linked events); `INSERT`/`UPDATE`/`DELETE` creator only. |
+| **comments** | `SELECT` when linked project/task is visible (same as projects/tasks `SELECT`). `INSERT` as self on accessible target. `UPDATE`/`DELETE` own comments only. |
 
 When adding tables or policies, update `supabase/schema.sql` and document any manual SQL steps for the user.
 
@@ -153,7 +157,7 @@ npm run build    # production build (run before finishing substantive changes)
 
 ## Current limitations (for context)
 
-- Labels, calendar events, comments, theme, wellness, and Kizuna data are not synced via Supabase
+- Labels, theme, wellness, and Kizuna chat data are not synced via Supabase
 - No project members or task labels tables (Team directory reads shared `profiles`; no roles or invitations yet)
 - Profile avatars are URL strings only (no upload storage)
 - No real-time subscriptions — users must refresh to see others' changes
@@ -169,9 +173,7 @@ The following features remain browser-only today and are candidates for future S
 
 | Feature | Current storage |
 |---------|-----------------|
-| Comments | `localStorage` (`lib/comments-storage.ts`) |
 | Labels | `localStorage` (`lib/workspace-storage.ts`) |
-| Calendar events | `localStorage` (`lib/workspace-storage.ts`) |
 | Wellness data | `localStorage` (`lib/wellness-storage.ts`) |
 | Kizuna chat & reminders | `localStorage` (Kizuna providers and storage helpers) |
 

@@ -6,11 +6,12 @@ import type {
 import { COMMENT_MAX_LENGTH } from "@/types/comment";
 import type { User } from "@/types/user";
 
-/** Mock current user until authentication is added. */
-export const CURRENT_USER_ID = "user_1";
-
-export function getCurrentUser(users: User[]): User | undefined {
-  return users.find((user) => user.id === CURRENT_USER_ID) ?? users[0];
+export function getCurrentUser(
+  users: User[],
+  currentUserId: string | null
+): User | undefined {
+  if (!currentUserId) return undefined;
+  return users.find((user) => user.id === currentUserId);
 }
 
 export function validateCommentMessage(message: string): {
@@ -82,7 +83,8 @@ export function formatCommentTimestamp(
   });
 }
 
-export function canEditComment(comment: Comment, userId: string): boolean {
+export function canEditComment(comment: Comment, userId: string | null): boolean {
+  if (!userId) return false;
   return comment.authorId === userId;
 }
 

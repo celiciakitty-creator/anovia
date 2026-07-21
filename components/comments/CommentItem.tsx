@@ -22,19 +22,29 @@ type CommentItemProps = {
 export function CommentItem({ comment }: CommentItemProps) {
   const { currentUserId, updateComment, deleteComment } = useComments();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
   const isOwn = canEditComment(comment, currentUserId);
 
-  const handleUpdate = (message: string, category: typeof comment.category) => {
-    const result = updateComment(comment.id, message, category);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
+  const handleUpdate = async (
+    message: string,
+    category: typeof comment.category
+  ) => {
+    if (isSaving) return;
+    setIsSaving(true);
     setError(undefined);
-    setIsEditing(false);
+    try {
+      const result = await updateComment(comment.id, message, category);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -79,8 +89,10 @@ export function CommentItem({ comment }: CommentItemProps) {
               <CommentComposer
                 initialMessage={comment.message}
                 initialCategory={comment.category}
-                submitLabel="Save changes"
+                submitLabel={isSaving ? "Saving…" : "Save changes"}
+                isSubmitting={isSaving}
                 onCancel={() => {
+                  if (isSaving) return;
                   setIsEditing(false);
                   setError(undefined);
                 }}
@@ -125,9 +137,11 @@ export function CommentItem({ comment }: CommentItemProps) {
       <DeleteConfirmModal
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        onConfirm={() => deleteComment(comment.id)}
+        onConfirm={async () => {
+          await deleteComment(comment.id);
+        }}
         title="Delete comment"
-        description="This comment will be removed from your local discussion history."
+        description="This comment will be permanently removed."
       />
     </li>
   );
