@@ -3,4 +3,7 @@ export type User = {
   name: string;
   initials: string;
   email: string;
+  displayName: string;
+  githubHandle: string;
+  avatarUrl: string;
 };

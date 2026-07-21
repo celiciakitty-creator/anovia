@@ -12,7 +12,7 @@ https://anovia.vercel.app
 - **Projects** — create, edit, and track projects with team context
 - **Tasks** — Kanban board with filtering and status updates
 - **Calendar** — events linked to projects
-- **Team** — coming soon (placeholder page; member directory not yet available)
+- **Team** — directory of workspace members from Supabase profiles
 - **Profile** — edit display name, GitHub handle, and avatar URL
 - **Wellness Hub** — wellness tracking and reminders
 - **Break Zone** — guided break activities

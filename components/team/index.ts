@@ -1,2 +1,1 @@
-export { TeamComingSoon } from "./TeamComingSoon";
-export { TeamIllustration } from "./TeamIllustration";
+export { TeamDirectory } from "./TeamDirectory";

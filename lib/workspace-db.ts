@@ -38,6 +38,7 @@ type DbProfileRow = {
   email: string | null;
   display_name: string | null;
   github_handle: string | null;
+  avatar_url: string | null;
 };
 
 function mapProjectRow(row: DbProjectRow): Project {
@@ -72,9 +73,11 @@ function mapTaskRow(row: DbTaskRow): Task {
 }
 
 function mapProfileRow(row: DbProfileRow): User {
+  const displayName = row.display_name?.trim() ?? "";
+  const githubHandle = row.github_handle?.trim().replace(/^@/, "") ?? "";
   const name =
-    row.display_name?.trim() ||
-    (row.github_handle ? `@${row.github_handle.replace(/^@/, "")}` : "") ||
+    displayName ||
+    (githubHandle ? `@${githubHandle}` : "") ||
     row.email ||
     "User";
 
@@ -83,6 +86,9 @@ function mapProfileRow(row: DbProfileRow): User {
     name,
     email: row.email ?? "",
     initials: generateInitials(name),
+    displayName,
+    githubHandle,
+    avatarUrl: row.avatar_url?.trim() ?? "",
   };
 }
 
@@ -191,7 +197,7 @@ export async function getAuthenticatedUserId(
 export async function getProfiles(supabase: SupabaseClient): Promise<User[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, github_handle")
+    .select("id, email, display_name, github_handle, avatar_url")
     .order("display_name", { ascending: true });
 
   if (error) {
