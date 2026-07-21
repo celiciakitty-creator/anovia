@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { UserAvatar } from "@/components/profile";
 import { RevealOnScroll } from "@/components/motion";
@@ -26,10 +27,17 @@ function githubProfileUrl(handle: string): string | null {
   return normalized ? `https://github.com/${normalized}` : null;
 }
 
-function TeamMemberCard({ user }: { user: User }) {
+function TeamMemberCard({
+  user,
+  currentUserId,
+}: {
+  user: User;
+  currentUserId: string | null;
+}) {
   const displayName = memberDisplayName(user);
   const githubLabel = formatGithubHandle(user.githubHandle);
   const githubUrl = githubProfileUrl(user.githubHandle);
+  const isSelf = currentUserId === user.id;
 
   return (
     <Card className="flex items-center gap-4">
@@ -66,12 +74,20 @@ function TeamMemberCard({ user }: { user: User }) {
           </p>
         )}
       </div>
+      {!isSelf && currentUserId ? (
+        <Link
+          href={`/messages/${user.id}`}
+          className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+        >
+          Message
+        </Link>
+      ) : null}
     </Card>
   );
 }
 
 export function TeamDirectory() {
-  const { users, isLoaded } = useWorkspace();
+  const { users, isLoaded, currentUserId } = useWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
 
   const sortedUsers = useMemo(
@@ -176,7 +192,7 @@ export function TeamDirectory() {
             {filteredUsers.map((user, index) => (
               <li key={user.id}>
                 <RevealOnScroll delay={Math.min(index * 40, 200)}>
-                  <TeamMemberCard user={user} />
+                  <TeamMemberCard user={user} currentUserId={currentUserId} />
                 </RevealOnScroll>
               </li>
             ))}

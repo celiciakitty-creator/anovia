@@ -17,6 +17,7 @@ Anovia uses the **Next.js App Router** with client-side feature providers and ty
 | Domain | Storage |
 |--------|---------|
 | Profiles, projects, tasks | Supabase PostgreSQL |
+| Direct messages (1:1 chat) | Supabase PostgreSQL (`direct_conversations`, `direct_messages`) |
 | Labels, calendar events, completion UI state | Browser `localStorage` (`lib/workspace-storage.ts`) |
 | Comments, theme, wellness, break zone, Kizuna chat, sidebar, onboarding | Browser `localStorage` |
 
@@ -47,6 +48,8 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 | `profiles` | User profile linked 1:1 to `auth.users` |
 | `projects` | Workspace projects (`owner_id` → profiles) |
 | `tasks` | Tasks within projects (`created_by`, `assignee_id` → profiles) |
+| `direct_conversations` | One-to-one DM threads between two profiles (canonical pair order) |
+| `direct_messages` | Messages within a direct conversation |
 
 **Triggers:**
 - `handle_new_user` — inserts a `profiles` row on sign-up from auth metadata
@@ -55,6 +58,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 **Data access helpers:**
 - `lib/workspace-db.ts` — projects and tasks CRUD; maps DB snake_case ↔ app camelCase
 - `lib/profile-db.ts` — profile load, ensure (create if missing), and update
+- `lib/direct-messages-db.ts` — direct conversation lookup/create and message send/load
 - `lib/workspace-utils.ts` — enrichment (progress, labels display, user lookup)
 
 **Known schema gaps (do not assume these exist in the DB):**
@@ -65,13 +69,15 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 
 ## Row Level Security (RLS)
 
-RLS is enabled on `profiles`, `projects`, and `tasks`.
+RLS is enabled on `profiles`, `projects`, `tasks`, `direct_conversations`, and `direct_messages`.
 
 | Table | Policy summary |
 |-------|----------------|
 | **profiles** | Authenticated users can `SELECT` all profiles. Users can `UPDATE` and `INSERT` only their own row (`id = auth.uid()`). |
 | **projects** | Authenticated `SELECT`. `INSERT` requires `owner_id = auth.uid()`. `UPDATE` / `DELETE` restricted to owner. |
 | **tasks** | Authenticated `SELECT`. `INSERT` requires `created_by = auth.uid()`. `UPDATE` / `DELETE` allowed for task creator or project owner. |
+| **direct_conversations** | `SELECT` / `INSERT` only when `auth.uid()` is one of the two participants; pair stored with `participant_one < participant_two`. |
+| **direct_messages** | `SELECT` / `INSERT` only for conversation participants; `sender_id` must equal `auth.uid()` on insert. |
 
 When adding tables or policies, update `supabase/schema.sql` and document any manual SQL steps for the user.
 
