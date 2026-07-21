@@ -4,6 +4,7 @@ export type UserProfile = {
   displayName: string;
   githubHandle: string;
   avatarUrl: string;
+  leaderboardOptIn: boolean;
   createdAt: string;
   updatedAt: string;
 };

@@ -9,6 +9,7 @@ type DbProfileRow = {
   display_name: string | null;
   github_handle: string | null;
   avatar_url: string | null;
+  leaderboard_opt_in: boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -30,6 +31,7 @@ function mapProfileRow(row: DbProfileRow): UserProfile {
     displayName: row.display_name ?? "",
     githubHandle: row.github_handle ?? "",
     avatarUrl: row.avatar_url ?? "",
+    leaderboardOptIn: row.leaderboard_opt_in ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -120,6 +122,25 @@ export async function updateOwnProfile(
   const { data, error } = await supabase
     .from("profiles")
     .update(profileInputToUpdate(input))
+    .eq("id", userId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapProfileRow(data as DbProfileRow);
+}
+
+export async function updateLeaderboardOptIn(
+  supabase: SupabaseClient,
+  userId: string,
+  leaderboardOptIn: boolean
+): Promise<UserProfile> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ leaderboard_opt_in: leaderboardOptIn })
     .eq("id", userId)
     .select("*")
     .single();

@@ -39,6 +39,7 @@ type DbProfileRow = {
   display_name: string | null;
   github_handle: string | null;
   avatar_url: string | null;
+  leaderboard_opt_in: boolean | null;
 };
 
 function mapProjectRow(row: DbProjectRow): Project {
@@ -61,6 +62,7 @@ function mapTaskRow(row: DbTaskRow): Task {
     description: row.description ?? "",
     projectId: row.project_id,
     assigneeId: row.assignee_id,
+    createdBy: row.created_by,
     dueDate: row.due_date ?? "",
     priority: row.priority,
     status: row.status,
@@ -89,6 +91,7 @@ function mapProfileRow(row: DbProfileRow): User {
     displayName,
     githubHandle,
     avatarUrl: row.avatar_url?.trim() ?? "",
+    leaderboardOptIn: row.leaderboard_opt_in ?? false,
   };
 }
 
@@ -197,7 +200,7 @@ export async function getAuthenticatedUserId(
 export async function getProfiles(supabase: SupabaseClient): Promise<User[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, display_name, github_handle, avatar_url")
+    .select("id, email, display_name, github_handle, avatar_url, leaderboard_opt_in")
     .order("display_name", { ascending: true });
 
   if (error) {

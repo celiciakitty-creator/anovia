@@ -1,18 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { UserAvatar } from "@/components/profile/UserAvatar";
+import { ToggleSwitch } from "@/components/wellness/ToggleSwitch";
+import { useWorkspace } from "@/components/workspace";
 import { Button, Card, CardHeader, Input } from "@/components/ui";
 import { useHydrated } from "@/hooks/useHydrated";
-import { ensureOwnProfile, updateOwnProfile } from "@/lib/profile-db";
+import {
+  ensureOwnProfile,
+  updateLeaderboardOptIn,
+  updateOwnProfile,
+} from "@/lib/profile-db";
 import { getProfileLabel, profileToFormInput } from "@/lib/profile-utils";
 import { createClient } from "@/utils/supabase/client";
 import type { UserProfile, UserProfileInput } from "@/types/profile";
 
 type SaveState = "idle" | "saving" | "success" | "error";
+type OptInSaveState = "idle" | "saving" | "error";
 
 export function ProfilePageContent() {
   const isHydrated = useHydrated();
+  const { refreshUsers } = useWorkspace();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [form, setForm] = useState<UserProfileInput>({
     displayName: "",
@@ -23,6 +32,8 @@ export function ProfilePageContent() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [optInSaveState, setOptInSaveState] = useState<OptInSaveState>("idle");
+  const [optInError, setOptInError] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -85,6 +96,32 @@ export function ProfilePageContent() {
     }
   };
 
+  const handleLeaderboardOptInChange = async (checked: boolean) => {
+    if (!profile) return;
+
+    setOptInSaveState("saving");
+    setOptInError(null);
+
+    try {
+      const supabase = createClient();
+      const updated = await updateLeaderboardOptIn(
+        supabase,
+        profile.id,
+        checked
+      );
+      setProfile(updated);
+      await refreshUsers();
+      setOptInSaveState("idle");
+    } catch (error) {
+      setOptInSaveState("error");
+      setOptInError(
+        error instanceof Error
+          ? error.message
+          : "Unable to update leaderboard preference."
+      );
+    }
+  };
+
   const previewProfile: Pick<UserProfile, "displayName" | "email" | "avatarUrl"> =
     {
       displayName: form.displayName,
@@ -111,13 +148,14 @@ export function ProfilePageContent() {
   }
 
   return (
-    <Card>
-      <CardHeader
-        title="Your profile"
-        description="Manage how you appear across Anovia."
-      />
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          title="Your profile"
+          description="Manage how you appear across Anovia."
+        />
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
         <div className="flex items-center gap-4">
           <UserAvatar profile={previewProfile} size="lg" />
           <div>
@@ -195,6 +233,41 @@ export function ProfilePageContent() {
           </Button>
         </div>
       </form>
-    </Card>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Team visibility"
+          description="Choose whether your progress appears on the opt-in Team Leaderboard."
+        />
+        <ToggleSwitch
+          id="leaderboard-opt-in"
+          label="Appear on Team Leaderboard"
+          description="Share your weekly completions, streak, and garden stage with teammates who also opt in. You can turn this off anytime — your stats stay private when opted out."
+          checked={profile.leaderboardOptIn}
+          onChange={handleLeaderboardOptInChange}
+        />
+        {optInError ? (
+          <p className="mt-3 text-sm text-danger" role="alert">
+            {optInError}
+          </p>
+        ) : null}
+        {optInSaveState === "saving" ? (
+          <p className="mt-3 text-sm text-muted-foreground" role="status">
+            Saving preference…
+          </p>
+        ) : null}
+        <p className="mt-4 text-xs text-muted-foreground">
+          View the{" "}
+          <Link
+            href="/leaderboard"
+            className="font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card rounded-sm"
+          >
+            Team Leaderboard
+          </Link>{" "}
+          to see who is sharing progress.
+        </p>
+      </Card>
+    </div>
   );
 }

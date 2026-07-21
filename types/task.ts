@@ -20,6 +20,7 @@ export type Task = {
   description: string;
   projectId: string;
   assigneeId: string | null;
+  createdBy: string;
   dueDate: string;
   priority: Priority;
   status: TaskStatus;

@@ -6,4 +6,5 @@ export type User = {
   displayName: string;
   githubHandle: string;
   avatarUrl: string;
+  leaderboardOptIn: boolean;
 };

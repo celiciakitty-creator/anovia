@@ -75,6 +75,7 @@ type WorkspaceContextValue = {
   getProject: (id: string) => EnrichedProject | undefined;
   getTask: (id: string) => Task | undefined;
   getEvent: (id: string) => CalendarEvent | undefined;
+  refreshUsers: () => Promise<void>;
   raw: WorkspaceData;
 };
 
@@ -470,6 +471,15 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     [updateLocal]
   );
 
+  const refreshUsers = useCallback(async () => {
+    const supabase = createClient();
+    const users = await getProfiles(supabase);
+    setData((current) => ({
+      ...current,
+      users,
+    }));
+  }, []);
+
   const enriched = useMemo(() => enrichWorkspace(data), [data]);
 
   useEffect(() => {
@@ -553,6 +563,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       getProject: (id) => (enriched.projects ?? []).find((p) => p.id === id),
       getTask: (id) => (Array.isArray(data.tasks) ? data.tasks : []).find((t) => t.id === id),
       getEvent: (id) => (Array.isArray(data.events) ? data.events : []).find((e) => e.id === id),
+      refreshUsers,
       raw: data,
     };
   }, [
@@ -573,6 +584,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     updateEvent,
     deleteEvent,
     setCompletedSectionExpanded,
+    refreshUsers,
   ]);
 
   return (

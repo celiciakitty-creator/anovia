@@ -4,12 +4,13 @@ export type NavIcon =
   | "tasks"
   | "calendar"
   | "team"
+  | "leaderboard"
   | "wellness"
   | "breakZone"
   | "growth"
   | "settings";
 
-export type NavGroupId = "workspace" | "wellnessHub";
+export type NavGroupId = "workspace" | "team" | "wellnessHub";
 
 export type NavItem = {
   label: string;

@@ -4,6 +4,7 @@ export const SIDEBAR_STORAGE_KEY = "anovia-sidebar-sections";
 
 export const DEFAULT_SIDEBAR_SECTIONS: SidebarSectionState = {
   workspace: true,
+  team: true,
   wellnessHub: true,
 };
 
@@ -27,6 +28,10 @@ export function readSidebarSections(): SidebarSectionState {
         typeof data.workspace === "boolean"
           ? data.workspace
           : DEFAULT_SIDEBAR_SECTIONS.workspace,
+      team:
+        typeof data.team === "boolean"
+          ? data.team
+          : DEFAULT_SIDEBAR_SECTIONS.team,
       wellnessHub:
         typeof data.wellnessHub === "boolean"
           ? data.wellnessHub

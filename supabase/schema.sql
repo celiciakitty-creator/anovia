@@ -37,6 +37,7 @@ CREATE TABLE public.profiles (
   display_name text,
   github_handle text,
   avatar_url text,
+  leaderboard_opt_in boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -48,6 +49,8 @@ COMMENT ON COLUMN public.profiles.id IS 'Matches auth.users.id.';
 COMMENT ON COLUMN public.profiles.email IS 'Copy of auth email for convenient joins and display.';
 COMMENT ON COLUMN public.profiles.display_name IS 'Friendly name from sign-up metadata (display_name).';
 COMMENT ON COLUMN public.profiles.github_handle IS 'GitHub username from sign-up metadata (github_handle).';
+COMMENT ON COLUMN public.profiles.leaderboard_opt_in IS
+  'When true, the member appears on the opt-in Team Leaderboard.';
 
 CREATE TRIGGER profiles_set_updated_at
   BEFORE UPDATE ON public.profiles

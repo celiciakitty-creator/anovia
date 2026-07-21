@@ -24,12 +24,15 @@ export const sidebarNavigation: NavEntry[] = [
     },
   },
   {
-    type: "link",
-    item: {
+    type: "group",
+    group: {
+      id: "team",
       label: "Team",
-      href: "/team",
-      icon: "team",
       emoji: "👥",
+      items: [
+        { label: "Directory", href: "/team", icon: "team" },
+        { label: "Leaderboard", href: "/leaderboard", icon: "leaderboard" },
+      ],
     },
   },
   {
