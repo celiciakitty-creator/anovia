@@ -5,6 +5,7 @@ import { useWorkspace } from "@/components/workspace";
 import { useHydrated } from "@/hooks/useHydrated";
 import { getCompletionStats } from "@/lib/completion-utils";
 import { cn } from "@/lib/utils";
+import { DashboardNavCard } from "./dashboard-nav";
 
 const EMPTY_COMPLETION_STATS = {
   completedToday: 0,
@@ -53,12 +54,13 @@ export function CompletedStatsCard() {
   const stats = isHydrated ? getCompletionStats(tasks) : EMPTY_COMPLETION_STATS;
 
   return (
-    <Card className="h-full">
-      <CardHeader
-        title="Completed"
-        description="Your completion momentum at a glance"
-      />
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+    <DashboardNavCard href="/tasks" ariaLabel="View tasks and completion stats">
+      <Card className="h-full transition-colors group-hover:border-primary/20">
+        <CardHeader
+          title="Completed"
+          description="Your completion momentum at a glance"
+        />
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <StatBlock
           label="Today"
           value={stats.completedToday}
@@ -77,6 +79,7 @@ export function CompletedStatsCard() {
           placeholder={!isHydrated}
         />
       </div>
-    </Card>
+      </Card>
+    </DashboardNavCard>
   );
 }

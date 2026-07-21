@@ -26,7 +26,7 @@ export function DashboardGrid() {
           <div className="flex h-full flex-col gap-4 sm:gap-6">
             <CompletedStatsCard />
             <WeeklyProgressCard />
-            <GrowthGardenCard />
+            <GrowthGardenCard navHref="/growth" />
           </div>
         </RevealOnScroll>
       </div>

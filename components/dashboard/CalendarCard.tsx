@@ -15,6 +15,7 @@ import {
   CALENDAR_EVENT_TYPE_STYLES,
 } from "@/types/calendar";
 import { cn } from "@/lib/utils";
+import { DashboardNavCard } from "./dashboard-nav";
 
 /** Fixed reference for SSR and pre-hydration calendar filtering. */
 const SSR_CALENDAR_REFERENCE = new Date(Date.UTC(2026, 6, 15, 12, 0, 0));
@@ -27,19 +28,17 @@ export function CalendarCard() {
   const copy = PAGE_EMPTY_STATES.calendarDashboard;
 
   return (
-    <Card className="h-full">
-      <CardHeader
-        title="Calendar"
-        description="Upcoming events"
-        action={
-          <a
-            href="/calendar"
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            View all
-          </a>
-        }
-      />
+    <DashboardNavCard href="/calendar" ariaLabel="View calendar and upcoming deadlines">
+      <Card className="h-full transition-colors group-hover:border-primary/20">
+        <CardHeader
+          title="Calendar"
+          description="Upcoming events"
+          action={
+            <span className="text-xs font-medium text-primary group-hover:underline">
+              View all
+            </span>
+          }
+        />
 
       {upcoming.length === 0 ? (
         <EmptyState
@@ -88,6 +87,7 @@ export function CalendarCard() {
           ))}
         </ul>
       )}
-    </Card>
+      </Card>
+    </DashboardNavCard>
   );
 }

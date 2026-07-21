@@ -3,19 +3,20 @@
 import { useWorkspace } from "@/components/workspace";
 import { Card } from "@/components/ui";
 import { useHydrated } from "@/hooks/useHydrated";
+import { getUpcomingEvents } from "@/lib/calendar-utils";
 import { AI_ASSISTANT_NAME } from "@/lib/constants";
 import {
   getActiveProjectCount,
   getTasksDueThisWeek,
-  getWeeklyCompletionStats,
 } from "@/lib/workspace-utils";
+import { DashboardMetricLink } from "./dashboard-nav";
 
 function formatStat(value: number | null): string {
   return value === null ? "—" : String(value);
 }
 
 export function WelcomeSection() {
-  const { projects, tasks } = useWorkspace();
+  const { projects, tasks, users, calendarEvents } = useWorkspace();
   const isHydrated = useHydrated();
 
   const greeting = isHydrated
@@ -31,9 +32,10 @@ export function WelcomeSection() {
 
   const activeProjects = isHydrated ? getActiveProjectCount(projects) : null;
   const dueThisWeek = isHydrated ? getTasksDueThisWeek(tasks).length : null;
-  const weeklyPercentage = isHydrated
-    ? getWeeklyCompletionStats(tasks).percentage
+  const upcomingDeadlines = isHydrated
+    ? getUpcomingEvents(calendarEvents ?? [], 7, new Date()).length
     : null;
+  const teamMembers = isHydrated ? users.length : null;
 
   return (
     <Card className="relative overflow-hidden border-none bg-gradient-to-br from-primary to-accent text-primary-foreground">
@@ -53,24 +55,26 @@ export function WelcomeSection() {
         </p>
 
         <div className="mt-6 flex flex-wrap gap-6">
-          <div>
-            <p className="text-2xl font-semibold">{formatStat(activeProjects)}</p>
-            <p className="text-xs text-primary-foreground/70">Active projects</p>
-          </div>
-          <div>
-            <p className="text-2xl font-semibold">{formatStat(dueThisWeek)}</p>
-            <p className="text-xs text-primary-foreground/70">
-              Tasks due this week
-            </p>
-          </div>
-          <div>
-            <p className="text-2xl font-semibold">
-              {weeklyPercentage === null ? "—" : `${weeklyPercentage}%`}
-            </p>
-            <p className="text-xs text-primary-foreground/70">
-              Weekly completion
-            </p>
-          </div>
+          <DashboardMetricLink
+            href="/projects"
+            label="Active projects"
+            value={formatStat(activeProjects)}
+          />
+          <DashboardMetricLink
+            href="/tasks"
+            label="Tasks due this week"
+            value={formatStat(dueThisWeek)}
+          />
+          <DashboardMetricLink
+            href="/calendar"
+            label="Upcoming deadlines"
+            value={formatStat(upcomingDeadlines)}
+          />
+          <DashboardMetricLink
+            href="/team"
+            label="Team members"
+            value={formatStat(teamMembers)}
+          />
         </div>
       </div>
     </Card>

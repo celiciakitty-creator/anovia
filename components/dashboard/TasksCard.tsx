@@ -8,6 +8,7 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { formatDueDate, getProjectById, getUrgentTasks } from "@/lib/workspace-utils";
 import { PRIORITY_LABELS } from "@/types/task";
 import { cn } from "@/lib/utils";
+import { DashboardNavCard } from "./dashboard-nav";
 
 const priorityBorder = {
   high: "border-l-danger",
@@ -22,19 +23,17 @@ export function TasksCard() {
   const copy = PAGE_EMPTY_STATES.tasksDashboard;
 
   return (
-    <Card className="h-full">
-      <CardHeader
-        title="Urgent tasks"
-        description="Next priorities"
-        action={
-          <a
-            href="/tasks"
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            View all
-          </a>
-        }
-      />
+    <DashboardNavCard href="/tasks" ariaLabel="View all tasks">
+      <Card className="h-full transition-colors group-hover:border-primary/20">
+        <CardHeader
+          title="Urgent tasks"
+          description="Next priorities"
+          action={
+            <span className="text-xs font-medium text-primary group-hover:underline">
+              View all
+            </span>
+          }
+        />
 
       {urgentTasks.length === 0 ? (
         <EmptyState
@@ -62,7 +61,9 @@ export function TasksCard() {
                   <p className="min-w-0 flex-1 text-sm font-medium text-foreground">
                     {task.title}
                   </p>
-                  <TaskStatusChip taskId={task.id} status={task.status} />
+                  <div data-dashboard-interactive>
+                    <TaskStatusChip taskId={task.id} status={task.status} />
+                  </div>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {project?.name ?? "Project"} · Due {formatDueDate(task.dueDate)} ·{" "}
@@ -73,6 +74,7 @@ export function TasksCard() {
           })}
         </ul>
       )}
-    </Card>
+      </Card>
+    </DashboardNavCard>
   );
 }

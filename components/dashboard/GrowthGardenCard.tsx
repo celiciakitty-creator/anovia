@@ -10,10 +10,12 @@ import {
   type GrowthGardenStats,
 } from "@/lib/growth-garden-utils";
 import { cn } from "@/lib/utils";
+import { DashboardNavCard } from "./dashboard-nav";
 
 type GrowthGardenCardProps = {
   stats?: GrowthGardenStats;
   className?: string;
+  navHref?: string;
 };
 
 function GardenPlant({ progress }: { progress: number }) {
@@ -102,7 +104,11 @@ function StatItem({
   );
 }
 
-export function GrowthGardenCard({ stats: statsOverride, className }: GrowthGardenCardProps) {
+export function GrowthGardenCard({
+  stats: statsOverride,
+  className,
+  navHref,
+}: GrowthGardenCardProps) {
   const { tasks } = useWorkspace();
   const isHydrated = useHydrated();
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -124,8 +130,14 @@ export function GrowthGardenCard({ stats: statsOverride, className }: GrowthGard
       ? "1 day"
       : `${stats.streakDays} days`;
 
-  return (
-    <Card className={cn("h-full", className)}>
+  const card = (
+    <Card
+      className={cn(
+        "h-full",
+        navHref && "transition-colors group-hover:border-primary/20",
+        className
+      )}
+    >
       <CardHeader
         title="Growth Garden"
         description={
@@ -196,5 +208,15 @@ export function GrowthGardenCard({ stats: statsOverride, className }: GrowthGard
         Small progress, every day, creates remarkable growth.
       </p>
     </Card>
+  );
+
+  if (!navHref) {
+    return card;
+  }
+
+  return (
+    <DashboardNavCard href={navHref} ariaLabel="View Growth Garden">
+      {card}
+    </DashboardNavCard>
   );
 }

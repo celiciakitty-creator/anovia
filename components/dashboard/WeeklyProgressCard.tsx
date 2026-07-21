@@ -4,6 +4,7 @@ import { Card, CardHeader } from "@/components/ui";
 import { useWorkspace } from "@/components/workspace";
 import { useHydrated } from "@/hooks/useHydrated";
 import { getWeeklyCompletionStats } from "@/lib/workspace-utils";
+import { DashboardNavCard } from "./dashboard-nav";
 
 const EMPTY_WEEKLY_PROGRESS = {
   completed: 0,
@@ -29,8 +30,9 @@ export function WeeklyProgressCard() {
   const maxValue = Math.max(...weeklyProgress.days.map((d) => d.value), 1);
 
   return (
-    <Card className="h-full">
-      <CardHeader
+    <DashboardNavCard href="/tasks" ariaLabel="View tasks and weekly progress">
+      <Card className="h-full transition-colors group-hover:border-primary/20">
+        <CardHeader
         title="Weekly Progress"
         description={
           isHydrated
@@ -78,6 +80,7 @@ export function WeeklyProgressCard() {
           />
         </div>
       </div>
-    </Card>
+      </Card>
+    </DashboardNavCard>
   );
 }

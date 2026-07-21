@@ -5,6 +5,7 @@ import { PAGE_EMPTY_STATES } from "@/data/empty-states";
 import { useWorkspace } from "@/components/workspace";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUS_STYLES } from "@/lib/workspace-utils";
 import { cn } from "@/lib/utils";
+import { DashboardNavCard } from "./dashboard-nav";
 
 export function ProjectsCard() {
   const { projects } = useWorkspace();
@@ -14,19 +15,17 @@ export function ProjectsCard() {
   const copy = PAGE_EMPTY_STATES.projectsDashboard;
 
   return (
-    <Card className="h-full">
-      <CardHeader
-        title="Projects"
-        description="Active workstreams"
-        action={
-          <a
-            href="/projects"
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            View all
-          </a>
-        }
-      />
+    <DashboardNavCard href="/projects" ariaLabel="View all projects">
+      <Card className="h-full transition-colors group-hover:border-primary/20">
+        <CardHeader
+          title="Projects"
+          description="Active workstreams"
+          action={
+            <span className="text-xs font-medium text-primary group-hover:underline">
+              View all
+            </span>
+          }
+        />
 
       {topProjects.length === 0 ? (
         <EmptyState
@@ -68,6 +67,7 @@ export function ProjectsCard() {
           ))}
         </ul>
       )}
-    </Card>
+      </Card>
+    </DashboardNavCard>
   );
 }
