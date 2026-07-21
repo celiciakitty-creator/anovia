@@ -140,7 +140,7 @@ npm run build    # production build (run before finishing substantive changes)
 ## Current limitations (for context)
 
 - Labels, calendar events, comments, theme, wellness, and Kizuna data are not synced via Supabase
-- No project members or task labels tables
+- No project members or task labels tables (Team directory reads shared `profiles`; no roles or invitations yet)
 - Profile avatars are URL strings only (no upload storage)
 - No real-time subscriptions — users must refresh to see others' changes
 - Schema is applied manually via the Supabase SQL Editor
