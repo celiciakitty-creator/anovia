@@ -22,7 +22,7 @@ Anovia uses the **Next.js App Router** with client-side feature providers and ty
 | Direct messages (1:1 chat) | Supabase PostgreSQL (`direct_conversations`, `direct_messages`) |
 | In-app notifications | Supabase PostgreSQL (`notifications`) |
 | Labels, completion UI state | Browser `localStorage` (`lib/workspace-storage.ts`) |
-| Theme, wellness, break zone, Kizuna chat, sidebar, onboarding | Browser `localStorage` |
+| Theme, wellness, break zone, Kizuna reminders, sidebar, onboarding | Browser `localStorage` |
 
 Do not store profiles, projects, or tasks in `localStorage`.
 
@@ -68,6 +68,7 @@ Schema lives in `supabase/schema.sql` and is applied manually in the Supabase SQ
 - `lib/direct-messages-db.ts` — direct conversation lookup/create and message send/load
 - `lib/notifications-db.ts` — notification fetch, deadline sync RPC, mark read
 - `lib/comments-db.ts` — project/task comment CRUD; maps DB snake_case ↔ app camelCase
+- `lib/kizuna-chat-engine.ts` — rule-based Kizuna Q&A from workspace data
 - `lib/workspace-utils.ts` — enrichment (progress, labels display, user lookup)
 
 **Known schema gaps (do not assume these exist in the DB):**
@@ -157,7 +158,7 @@ npm run build    # production build (run before finishing substantive changes)
 
 ## Current limitations (for context)
 
-- Labels, theme, wellness, and Kizuna chat data are not synced via Supabase
+- Labels, theme, and wellness data are not synced via Supabase
 - No project members or task labels tables (Team directory reads shared `profiles`; no roles or invitations yet)
 - Profile avatars are URL strings only (no upload storage)
 - No real-time subscriptions — users must refresh to see others' changes
@@ -175,6 +176,5 @@ The following features remain browser-only today and are candidates for future S
 |---------|-----------------|
 | Labels | `localStorage` (`lib/workspace-storage.ts`) |
 | Wellness data | `localStorage` (`lib/wellness-storage.ts`) |
-| Kizuna chat & reminders | `localStorage` (Kizuna providers and storage helpers) |
 
 Theme, break zone, sidebar, onboarding, and completion UI state may remain local-only preferences unless cross-device sync is required.

@@ -17,7 +17,7 @@ https://anovia.vercel.app
 - **Wellness Hub** — wellness tracking and reminders
 - **Break Zone** — guided break activities
 - **Growth Garden** — gamified progress visualization
-- **Kizuna AI** — in-app assistant and reminders
+- **Kizuna** — in-app assistant and reminders
 - **Themes** — light, dark, system, and custom color presets
 - **Comments** — threaded discussions on projects and tasks
 
@@ -106,9 +106,8 @@ supabase/schema.sql     PostgreSQL schema and RLS policies
 
 | Data | Storage |
 |------|---------|
-| Projects, tasks, profiles | Supabase PostgreSQL |
-| Labels, calendar events, completion UI state | Browser `localStorage` |
-| Comments, theme, wellness, break zone, Kizuna chat | Browser `localStorage` |
+| Projects, tasks, profiles, calendar events, comments | Supabase PostgreSQL |
+| Labels, completion UI state, theme, wellness, break zone | Browser `localStorage` |
 
 Projects and tasks are loaded through `WorkspaceProvider`, which waits for the Supabase auth session before fetching. CRUD operations go through typed helpers in `lib/workspace-db.ts` and `lib/profile-db.ts`.
 
@@ -131,7 +130,7 @@ RLS is enabled on all application tables. Policies enforce:
 
 ## Current Limitations
 
-- **Partial localStorage usage** — labels, calendar events, comments, theme preferences, wellness data, and Kizuna chat history remain in the browser and are not synced across devices
+- **Partial localStorage usage** — labels, theme preferences, and wellness data remain in the browser and are not synced across devices
 - **No project member table** — project `memberIds` in the UI map to the owner only; multi-member assignment is not persisted
 - **No task labels in the database** — label selections on tasks are not saved to Supabase
 - **Avatar via URL only** — profile avatars accept a URL string; there is no file upload storage
